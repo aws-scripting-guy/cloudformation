@@ -1,0 +1,135 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "Identity Layer. Federation IDP can be created as well to enable federation for respective roles. + step after stack of Customer Managed Policies.",
+    "Metadata": {
+
+    },
+    "Parameters": {
+    
+    	"masterAccountId": {
+    	    "Description": "ID of Master Account which will be able to assume federated role",
+    	    "Type": "String",
+    	    "Default": "228702965620"
+    	}
+
+    },
+
+    "Resources": {
+
+	    "InstanceRole": {
+	             "Type": "AWS::IAM::Role",
+	             "Properties": {
+	                "AssumeRolePolicyDocument": {
+	                   "Version" : "2012-10-17",
+	                   "Statement": [ {
+	                      "Effect": "Allow",
+	                      "Principal": {
+	                         "Service": [ "ec2.amazonaws.com" ]
+	                      },
+	                      "Action": [ "sts:AssumeRole" ]
+	                   } ]
+	                },
+	                "Path": "/"
+	             }
+	    },
+
+	    "RolePolicies": {
+	             "Type": "AWS::IAM::Policy",
+	             "Properties": {
+	                "PolicyName": "instance_full_access",
+	                "PolicyDocument": {
+	                   "Version" : "2012-10-17",
+	                   "Statement": [ {
+	                      "Effect": "Allow",
+	                      "Action": "*",
+	                      "Resource": "*"
+	                   } ]
+	                },
+	                "Roles": [ {
+	                   "Ref": "InstanceRole"
+	                } ]
+	             }
+	    },
+
+	    "InstanceProfile": {
+	             "Type": "AWS::IAM::InstanceProfile",
+	             "Properties": {
+	                "Path": "/",
+	                "Roles": [ { "Ref": "InstanceRole" } ]
+	             }
+	    },
+
+	    "MasterFederationRole": {
+	             "Type": "AWS::IAM::Role",
+	             "Properties": {
+	                "AssumeRolePolicyDocument": {
+	                   "Version" : "2012-10-17",
+	                   "Statement": [ {
+	                      "Effect": "Allow",
+	                      "Principal": {
+	                         "AWS": [ { "Ref" : "masterAccountId"} ]
+	                      },
+	                      "Action": [ "sts:AssumeRole" ]
+	                   } ]
+	                },
+	                "Path": "/",
+	                "ManagedPolicyArns": [ "arn:aws:iam::aws:policy/AdministratorAccess" ]	 
+	             }
+	    },
+
+		"Group" : {
+		   "Type" : "AWS::IAM::Group",
+		   "Properties" : {
+		      "Policies" : [ {
+		         "PolicyName" : "protectLayers",
+		         "PolicyDocument" : {
+		            "Version": "2012-10-17",
+		            "Statement" : [ 
+		            {
+		               "Effect" : "Deny",
+		               "Action" : [ "cloudformation:*" ],
+		               "Resource" : "*"
+		            }
+		         ] }
+		      } ],
+		      "ManagedPolicyArns": [ "arn:aws:iam::aws:policy/PowerUserAccess" ]
+		   }
+		},
+
+		"User": {
+		   "Type": "AWS::IAM::User",
+		   "Properties": {
+		      "Groups": [ { "Ref": "Group" } ],
+		      "LoginProfile" : {
+		         "Password" : "myP@ssW0rd"
+		      }
+			}
+		},
+
+		"addUserToGroup" : {
+		   "Type" : "AWS::IAM::UserToGroupAddition",
+		   "Properties" : {
+		      "GroupName" : { "Ref": "Group" },
+		      "Users" : [  { "Ref" : "User" } ]
+		   }
+		}
+
+    },
+
+    "Outputs": {
+
+    	"MasterFederationRoleARN" : {
+    	  "Value" : { "Fn::GetAtt" : ["MasterFederationRole", "Arn"] }
+    	},
+
+		"UserName" : {
+		  "Value" : { "Ref": "User" } 
+		},
+
+		"UserPassword" : {
+			"Value": "myP@ssW0rd"
+		}
+
+    }
+}
+    

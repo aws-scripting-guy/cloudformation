@@ -1,0 +1,33 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "Master stack",
+    "Metadata": {
+
+    },
+    "Parameters": {
+    
+    },
+    "Mappings": {
+
+    },
+    "Conditions": {
+
+    },
+    "Resources": {
+
+    	"IAMLayer": {
+		   "Type" : "AWS::CloudFormation::Stack",
+		   "Properties" : {
+		      "NotificationARNs" : [ String, ... ],
+		      "Parameters" : { CloudFormation Stack Parameters Property Type },
+		      "TemplateURL" : String,
+		      "TimeoutInMinutes" : String
+		   }
+	},
+
+    },
+    "Outputs": {
+
+    }
+}
+    

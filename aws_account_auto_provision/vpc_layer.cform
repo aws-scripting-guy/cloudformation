@@ -1,0 +1,141 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "Network Layer. Instance with role can be started as next step. Instance will delete default VPC by running aws ec2 delete-vpc --vpc-id vpc-a01106c2",
+    "Metadata": {
+
+    },
+    "Parameters": {
+
+        "VPCname": {
+            "Description": "VPC name",
+            "Type": "String",
+            "Default": "-"
+        }
+
+    },
+    "Mappings": {
+
+    },
+    "Conditions": {
+
+    },
+    "Resources": {
+
+        "VPC": {
+                "Type" : "AWS::EC2::VPC",
+                "Properties" : {
+                  "CidrBlock" : "10.0.0.0/16",
+                  "EnableDnsSupport" : true,
+                  "EnableDnsHostnames" : true,
+                      "Tags" : [ {"Key" : "Name", "Value" : {"Ref": "VPCname"} }]
+                }
+        },
+
+        "InternetGateway" : {
+                 "Type" : "AWS::EC2::InternetGateway",
+                 "Properties" : {
+                    "Tags" : [ {"Key" : "Name", "Value" : "igw"}]
+                 }
+        },
+
+        "AttachGateway" : {
+                 "Type" : "AWS::EC2::VPCGatewayAttachment",
+                 "Properties" : {
+                    "VpcId" : { "Ref" : "VPC" },
+                    "InternetGatewayId" : { "Ref" : "InternetGateway" }
+                 }
+        },
+
+        "PrivateSubnet1" : {
+                 "Type" : "AWS::EC2::Subnet",
+                 "Properties" : {
+                   "VpcId" : { "Ref" : "VPC" },
+                   "CidrBlock" : "10.0.1.0/24",
+                     "Tags" : [ { "Key" : "Name", "Value" : "Private-subnet1" } ]
+                 }
+        },
+
+        "PrivateSubnet2" : {
+                 "Type" : "AWS::EC2::Subnet",
+                 "Properties" : {
+                   "VpcId" : { "Ref" : "VPC" },
+                   "CidrBlock" : "10.0.2.0/24",
+                     "Tags" : [ { "Key" : "Name", "Value" : "Private-subnet2" } ]
+
+                 }
+        },
+
+        "PublicSubnet" : {
+                 "Type" : "AWS::EC2::Subnet",
+                 "Properties" : {
+                   "VpcId" : { "Ref" : "VPC" },
+                   "CidrBlock" : "10.0.3.0/24",
+                   "MapPublicIpOnLaunch" : true,
+                     "Tags" : [ { "Key" : "Name", "Value" : "Public-subnet" } ]
+                 }
+        },
+
+        "PrivateRouteTable" : {
+                 "Type" : "AWS::EC2::RouteTable",
+                 "Properties" : {
+                    "VpcId" : { "Ref" : "VPC" },
+                    "Tags" : [ { "Key" : "Name", "Value" : "Private-rt" } ]
+                 }
+        },
+
+        "PublicRouteTable" : {
+                 "Type" : "AWS::EC2::RouteTable",
+                 "Properties" : {
+                    "VpcId" : { "Ref" : "VPC" },
+                    "Tags" : [ { "Key" : "Name", "Value" : "Public-rt" } ]
+                 }
+        },
+
+        "PublicRoute" : {
+                 "Type" : "AWS::EC2::Route",
+                 "Properties" : {
+                    "RouteTableId" : { "Ref" : "PublicRouteTable" },
+                    "DestinationCidrBlock" : "0.0.0.0/0",
+                    "GatewayId" : { "Ref" : "InternetGateway" }
+                 }
+        },
+
+        "PublicSubnetRouteTableAssociation" : {
+                 "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+                 "Properties" : {
+                    "SubnetId" : { "Ref" : "PublicSubnet" },
+                    "RouteTableId" : { "Ref" : "PublicRouteTable" }
+                 }
+        },
+
+        "PrivateSubnetRouteTableAssociation1" : {
+                 "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+                 "Properties" : {
+                    "SubnetId" : { "Ref" : "PrivateSubnet1" },
+                    "RouteTableId" : { "Ref" : "PrivateRouteTable" }
+                 }
+        },
+
+        "PrivateSubnetRouteTableAssociation2" : {
+                 "Type" : "AWS::EC2::SubnetRouteTableAssociation",
+                 "Properties" : {
+                    "SubnetId" : { "Ref" : "PrivateSubnet2" },
+                    "RouteTableId" : { "Ref" : "PrivateRouteTable" }
+                 }
+        }
+
+    },
+
+    "Outputs": {
+
+        "VPCid" : {
+          "Value" : { "Ref" : "VPC" }
+        },
+
+        "StackId" : {
+          "Value" : { "Ref" : "AWS::StackId" }
+        }
+
+    }
+}
+    
