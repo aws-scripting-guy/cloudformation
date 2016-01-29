@@ -70,7 +70,7 @@
     "DomainName" : {
       "Description" : "Domain name which will be used for wordpress website.",
       "Type": "String",
-      "Default": "cloudfountain.eu",
+      "Default": "us-east-1.zone",
       "ConstraintDescription": "must be a valid domain name."
     },
 
@@ -334,7 +334,7 @@
               }
             },
             "Properties": {
-              "ImageId" : "ami-3ed5614d",
+              "ImageId" : "ami-61defd0b",
               "InstanceType"   : "t2.micro",
               "IamInstanceProfile" : { "Ref" : "InstanceProfile" },
               "KeyName"        : { "Ref" : "KeyName" },
@@ -423,7 +423,7 @@
       "Properties": {
         "Engine"            : "MySQL",
         "DBInstanceClass"   : "db.t1.micro",
-        "DBSnapshotIdentifier" : "arn:aws:rds:eu-west-1:768938746735:snapshot:cloudfountaineu-23-1-2015",
+        "DBSnapshotIdentifier" : "arn:aws:rds:us-east-1:276905068387:snapshot:cloudfountain-26-1-2016",
         "DBSecurityGroups"  : [{ "Ref" : "DBSecurityGroup" }],
         "AllocatedStorage"  : { "Ref" : "DBAllocatedStorage" },
         "PubliclyAccessible" : false,
@@ -497,7 +497,7 @@
         "Type" : "AWS::Route53::RecordSetGroup",
         "Properties" : {
           "Comment" : { "Fn::Join" : [ "", [ "Alias record for ", { "Ref" : "DomainName" } ] ] },
-            "HostedZoneId" : "Z1LY4PZUXHY8AX",
+            "HostedZoneId" : "Z3IL38TNV56QE6",
             "RecordSets" : [{
                 "Name" : { "Fn::Join" : [ "", [ { "Ref" : "DomainName" } ] ] },
                 "Type" : "A",
