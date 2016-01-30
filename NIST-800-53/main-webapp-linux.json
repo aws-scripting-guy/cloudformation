@@ -1,0 +1,713 @@
+{
+   "AWSTemplateFormatVersion": "2010-09-09",
+   "Description": "(0016) Proserve NIST Main template. This template will deploy a full environment with a 3 tier linux-based web application, including IAM, VPC, and application. Must have full admin rights to deploy. ",
+    "Metadata" : {
+      "AWS::CloudFormation::Interface" : {
+  "ParameterGroups" : [
+    {
+      "Label" : { "default" : "Network Configuration" },
+      "Parameters" : [ "createVPCDevelopment","createVPCManagement","pProductionVPCName","pDevelopmentVPCName","pManagementVPCName","pProductionCIDR", "pDevelopmentCIDR", "pManagementCIDR", "pAppPrivateSubnetACIDR","pAppPrivateSubnetBCIDR", "pDMZSubnetACIDR","pDMZSubnetBCIDR","pDBPrivateSubnetACIDR","pDBPrivateSubnetBCIDR","pDMZSubnetBCIDR", "pDevSubnetACIDR","pDevSubnetBCIDR","pManagementSubnetACIDR","pManagementSubnetBCIDR", "pNatInstanceType" ]
+    },
+    {
+      "Label" : { "default":"EC2 Configuration" },
+      "Parameters" : [ "pAppInstanceType", "pWebInstanceType", "pAppAmi","pWebServerAMI","pKeyName" ]
+    },
+    {
+      "Label" : { "default":"Logging" },
+      "Parameters" : [ "pCreateCloudTrail", "pS3CloudTrailLocal","pS3CloudTrailBucketExisting" ]
+    },
+    {
+      "Label" : { "default":"Database" },
+      "Parameters" : [ "pDBClass", "pDBAllocatedStorage","pDBName","pDBUser","pDBPassword" ]
+    },
+    {
+      "Label" : { "default":"Optional Buckets" },
+      "Parameters" : [ "pBackupBucketName", "pAppLogsBucketName","pWebContentBucketName" ]
+    },
+    {
+      "Label" : { "default":"Nested StackURLs" },
+      "Parameters" : [ "stack1URL", "stack2URL","stack3URL","stack4URL" ]
+    }
+  ],
+  "ParameterLabels" : {
+    "pCreateCloudTrail" : { "default" : "Do you want to enable CloudTrail Logging?" },
+    "pS3CloudTrailBucketExisting" : { "default" : "Specify an existing bucket name if one already exists" },
+    "pS3CloudTrailLocal" : { "default" : "Specify a new bucket name to create for CloudTrail" },
+    "createVPCDevelopment" : { "default" : "Do you want to create a Development VPC in this account?" },
+    "createVPCManagement" : { "default" : "Do you want to create a Management VPC in this account?" }
+  }
+},
+        "Stack" : {"Value" : "0"},
+        "VersionDate" : { "Value" : "09292015" },
+        "Identifier" : { "Value" : "main-webapp-linux-01" },
+        "Input" : { "Description" : "Input of all required parameters in nested stacks" },
+        "Output" : { "Description" : "N/A" }
+    },
+   "Parameters": {
+        "pCreateCloudTrail" : {
+                "Description" : "Create new CloudTrail Trail (yes or no), if yes must provide pS3CloudTrailBucketExisting or pS3CloudTrailLocal parameter? 'no' will not setup any CloudTrail logging",
+                "Type" : "String",
+                "Default" : "no"
+        },
+        "pS3CloudTrailBucketExisting" : {
+                "Description" : "Name of EXISTING S3 log bucket for CloudTrail if not creating new",
+                "Type" : "String",
+		"Default" : "none"
+        },
+        "pNotifyEmail" : {
+    			"Description" : "Notification email for security events",
+    			"Type" : "String",
+     			"Default" : "distlist@example.org"
+    		},
+        "pS3CloudTrailLocal" : {
+                "Description" : "Name of new local bucket for S3 logging (required)",
+                "Type" : "String",
+		"Default" : "none"
+        },
+      "pKeyName": {
+         "Description": "Key Name for Instance",
+         "Type": "AWS::EC2::KeyPair::KeyName",
+         "Default": ""
+      },
+      "pNatInstanceType": {
+         "Description": "Nat EC2 instance type",
+         "Type": "String",
+         "Default": "t1.micro",
+         "AllowedValues": [
+            "t1.micro",
+            "t2.micro",
+            "t2.small",
+            "t2.medium",
+            "m1.small",
+            "m1.medium",
+            "m1.large",
+            "m1.xlarge",
+            "m2.xlarge",
+            "m2.2xlarge",
+            "m2.4xlarge",
+            "m3.medium",
+            "m3.large",
+            "m3.xlarge",
+            "m3.2xlarge",
+            "c1.medium",
+            "c1.xlarge",
+            "c3.large",
+            "c3.xlarge",
+            "c3.2xlarge",
+            "c3.4xlarge",
+            "c3.8xlarge",
+            "g2.2xlarge",
+            "r3.large",
+            "r3.xlarge",
+            "r3.2xlarge",
+            "r3.4xlarge",
+            "r3.8xlarge",
+            "i2.xlarge",
+            "i2.2xlarge",
+            "i2.4xlarge",
+            "i2.8xlarge",
+            "hi1.4xlarge",
+            "hs1.8xlarge",
+            "cr1.8xlarge",
+            "cc2.8xlarge",
+            "cg1.4xlarge"
+         ],
+         "ConstraintDescription": "must be a valid EC2 instance type, existing in the mapping."
+      },
+      "pWebInstanceType": {
+         "Description": "WebServer EC2 instance type",
+         "Type": "String",
+         "Default": "m3.large",
+         "AllowedValues": [
+            "t1.micro",
+            "t2.micro",
+            "t2.small",
+            "t2.medium",
+            "m1.small",
+            "m1.medium",
+            "m1.large",
+            "m1.xlarge",
+            "m2.xlarge",
+            "m2.2xlarge",
+            "m2.4xlarge",
+            "m3.medium",
+            "m3.large",
+            "m3.xlarge",
+            "m3.2xlarge",
+            "c1.medium",
+            "c1.xlarge",
+            "c3.large",
+            "c3.xlarge",
+            "c3.2xlarge",
+            "c3.4xlarge",
+            "c3.8xlarge",
+            "g2.2xlarge",
+            "r3.large",
+            "r3.xlarge",
+            "r3.2xlarge",
+            "r3.4xlarge",
+            "r3.8xlarge",
+            "i2.xlarge",
+            "i2.2xlarge",
+            "i2.4xlarge",
+            "i2.8xlarge",
+            "hi1.4xlarge",
+            "hs1.8xlarge",
+            "cr1.8xlarge",
+            "cc2.8xlarge",
+            "cg1.4xlarge"
+         ],
+         "ConstraintDescription": "must be a valid EC2 instance type, existing in the mapping."
+      },
+      "pAppInstanceType": {
+         "Description": "Application Server EC2 instance type",
+         "Type": "String",
+         "Default": "m3.large",
+         "AllowedValues": [
+            "t1.micro",
+            "t2.micro",
+            "t2.small",
+            "t2.medium",
+            "m1.small",
+            "m1.medium",
+            "m1.large",
+            "m1.xlarge",
+            "m2.xlarge",
+            "m2.2xlarge",
+            "m2.4xlarge",
+            "m3.medium",
+            "m3.large",
+            "m3.xlarge",
+            "m3.2xlarge",
+            "c1.medium",
+            "c1.xlarge",
+            "c3.large",
+            "c3.xlarge",
+            "c3.2xlarge",
+            "c3.4xlarge",
+            "c3.8xlarge",
+            "g2.2xlarge",
+            "r3.large",
+            "r3.xlarge",
+            "r3.2xlarge",
+            "r3.4xlarge",
+            "r3.8xlarge",
+            "i2.xlarge",
+            "i2.2xlarge",
+            "i2.4xlarge",
+            "i2.8xlarge",
+            "hi1.4xlarge",
+            "hs1.8xlarge",
+            "cr1.8xlarge",
+            "cc2.8xlarge",
+            "cg1.4xlarge"
+         ],
+         "ConstraintDescription": "must be a valid EC2 instance type, existing in the mapping."
+      },
+      "pRegionDomain": {
+         "Description": "Region name where resources will deploy",
+         "Type": "String",
+         "Default": "us-east-1.compute.internal"
+      },
+      "pRegionAZ1Name": {
+         "Description": "Availability Zone 1 Name in Region",
+         "Type": "AWS::EC2::AvailabilityZone::Name"
+      },
+      "pRegionAZ2Name": {
+         "Description": "Availability Zone 2 Name in Region",
+         "Type": "AWS::EC2::AvailabilityZone::Name"
+      },
+      "pProductionVPCName": {
+         "Description": "Production VPC Name",
+         "Type": "String",
+         "Default": "Production"
+      },
+      "pDevelopmentVPCName": {
+         "Description": "Development VPC Name",
+         "Type": "String",
+         "Default": "Development"
+      },
+      "pProductionCIDR": {
+         "Description": "CIDR block for Production VPC",
+         "Type": "String",
+         "Default": "10.100.0.0/16",
+         "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+         "ConstraintDescription": "must be a valid IP CIDR range of the form x.x.x.x/x."
+      },
+      "pDMZSubnetACIDR": {
+         "Description": "CIDR block for DMZ AZ-1b subnet",
+         "Type": "String",
+         "Default": "10.100.1.0/24",
+         "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+         "ConstraintDescription": "must be a valid IP CIDR range of the form x.x.x.x/x."
+      },
+      "pDMZSubnetBCIDR": {
+         "Description": "CIDR block for DMZ AZ-1b subnet",
+         "Type": "String",
+         "Default": "10.100.2.0/24",
+         "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+         "ConstraintDescription": "must be a valid IP CIDR range of the form x.x.x.x/x."
+      },
+      "pAppPrivateSubnetACIDR": {
+         "Description": "CIDR block for Public AZ-1a subnet",
+         "Type": "String",
+         "Default": "10.100.10.0/24",
+         "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+         "ConstraintDescription": "must be a valid IP CIDR range of the form x.x.x.x/x."
+      },
+      "pAppPrivateSubnetBCIDR": {
+         "Description": "CIDR block for Public AZ-1b subnet",
+         "Type": "String",
+         "Default": "10.100.11.0/24",
+         "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+         "ConstraintDescription": "must be a valid IP CIDR range of the form x.x.x.x/x."
+      },
+      "pDBPrivateSubnetACIDR": {
+         "Description": "CIDR block for Private AZ-1a subnet",
+         "Type": "String",
+         "Default": "10.100.20.0/24",
+         "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+         "ConstraintDescription": "must be a valid IP CIDR range of the form x.x.x.x/x."
+      },
+      "pDBPrivateSubnetBCIDR": {
+         "Description": "CIDR block for Private AZ-1b subnet",
+         "Type": "String",
+         "Default": "10.100.21.0/24",
+         "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+         "ConstraintDescription": "must be a valid IP CIDR range of the form x.x.x.x/x."
+      },
+      "pManagementCIDR": {
+         "Description": "CIDR block for Management VPC",
+         "Type": "String",
+         "Default": "10.10.0.0/16",
+         "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+         "ConstraintDescription": "must be a valid IP CIDR range of the form x.x.x.x/x."
+      },
+      "pManagementSubnetACIDR": {
+         "Description": "CIDR block for Management AZ-1a subnet",
+         "Type": "String",
+         "Default": "10.10.1.0/24",
+         "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+         "ConstraintDescription": "must be a valid IP CIDR range of the form x.x.x.x/x."
+      },
+      "pManagementSubnetBCIDR": {
+         "Description": "CIDR block for Management AZ-1b subnet",
+         "Type": "String",
+         "Default": "10.10.2.0/24",
+         "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+         "ConstraintDescription": "must be a valid IP CIDR range of the form x.x.x.x/x."
+      },
+      "pDevelopmentCIDR": {
+         "Description": "CIDR block for Development VPC",
+         "Type": "String",
+         "Default": "10.20.0.0/16",
+         "AllowedPattern": "((\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})|False)",
+         "ConstraintDescription": "must be a valid IP CIDR range of the form x.x.x.x/x."
+      },
+      "pDevSubnetACIDR": {
+         "Description": "CIDR block for Development AZ-1a subnet",
+         "Type": "String",
+         "Default": "10.20.1.0/24",
+         "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+         "ConstraintDescription": "must be a valid IP CIDR range of the form x.x.x.x/x."
+      },
+      "pDevSubnetBCIDR": {
+         "Description": "CIDR block for Development AZ-1b subnet",
+         "Type": "String",
+         "Default": "10.20.2.0/24",
+         "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+         "ConstraintDescription": "must be a valid IP CIDR range of the form x.x.x.x/x."
+      },
+      "pWebContentBucketName": {
+         "Description": "Name of S3 Bucket to use for web content (optional)",
+         "Type": "String",
+	 "Default" : "none"
+      },
+      "pAppLogsBucketName": {
+         "Description": "Name of S3 Bucket to use for application logs (optional)",
+         "Type": "String",
+	 "Default" : "none"
+      },
+      "pBackupBucketName": {
+         "Description": "Name of S3 Bucket to use for backup/DR data (optional)",
+         "Type": "String",
+	 "Default" : "none"
+      },
+      "stack1URL": {
+         "Description": "Valid S3 URL of location where Stack1 template exists",
+         "Type": "String",
+         "Default": "https://s3.amazonaws.com/quickstart-reference/enterprise-accelerator/nist/latest/templates/stack1-access-01.json"
+      },
+      "stack2URL": {
+         "Description": "Valid S3 URL of location where Stack2 template exists",
+         "Type": "String",
+         "Default": "https://s3.amazonaws.com/quickstart-reference/enterprise-accelerator/nist/latest/templates/stack2-network-01.json"
+      },
+      "stack3URL": {
+         "Description": "Valid S3 URL of location where Stack3 template exists",
+         "Type": "String",
+         "Default": "https://s3.amazonaws.com/quickstart-reference/enterprise-accelerator/nist/latest/templates/stack3-resources-01.json"
+      },
+      "stack4URL": {
+         "Description": "Valid S3 URL of location where Stack4 template exists",
+         "Type": "String",
+	 "Default" : "https://s3.amazonaws.com/quickstart-reference/enterprise-accelerator/nist/latest/templates/stack4-application-01.json"
+      },
+      "pWebServerAMI": {
+         "Description": "Which webserver AMI do you want to use, default ",
+         "Type": "String",
+	 "Default" : "ami-60b6c60a"
+      },
+      "pAppAmi": {
+         "Description": "Which App AMI do you want to use?",
+         "Type": "String",
+	 "Default" : "ami-60b6c60a"
+      },
+      "pDBName" : {
+         "Description" : "Name of RDS Database",
+         "Type" : "String",
+         "Default" : "TestDB"
+      },
+      "pDBUser" : {
+         "Description" : "Username of RDS DB Instance",
+         "Type" : "String",
+	 "Default" : "Administrator"
+      },
+      "pDBPassword" : {
+         "Description" : "*Password of RDS DB Instance (minimum 8 characters)",
+         "Type" : "String",
+	 "NoEcho" : "True"
+      },
+      "pDBClass" : {
+         "Description" : "Instance class of RDS instance",
+         "Type" : "String",
+	 "Default" : "db.m3.large"
+      },
+      "pDBAllocatedStorage" : {
+         "Description" : "Allocated Storage (in GB) for RDS instance",
+         "Type" : "String",
+	 "Default" : "10"
+      },
+      "createVPCManagement" : {
+	 "Description" : "Create Management VPC? (yes/no)",
+	"Type" : "String",
+	"Default" : "yes"
+      },
+
+      "createVPCDevelopment" : {
+         "Description" : "Create Development VPC? (yes/no)",
+        "Type" : "String",
+        "Default" : "no"
+      }
+
+   },
+   "Conditions": {
+      "CreateVPCManagement" : {
+	 "Fn::Or" : [
+            { "Fn::Equals": [{"Ref": "createVPCManagement"},"yes"] }, { "Fn::Equals": [{"Ref": "createVPCManagement"},"YES"]},
+            { "Fn::Equals": [{"Ref": "createVPCManagement"},"true"]}, { "Fn::Equals": [{"Ref": "createVPCManagement"},"True"]}
+         ]
+      },
+      "CreateVPCDevelopment" : {
+         "Fn::Or" : [
+            { "Fn::Equals": [{"Ref": "createVPCDevelopment"},"yes"] }, { "Fn::Equals": [{"Ref": "createVPCDevelopment"},"YES"] }
+         ]
+      },
+      "CreateWebAppBucket" : {
+	 "Fn::Not" : [  {"Fn::Equals" : [ { "Ref" : "pWebContentBucketName" }, "none"] } ]
+      },
+      "CreateBackupBucket" : {
+         "Fn::Not" : [ { "Fn::Equals" : [ { "Ref" : "pBackupBucketName" }, "none"] } ]
+      },
+      "CreateAppLogsBucket" : {
+         "Fn::Not" : [ { "Fn::Equals" : [ { "Ref" : "pAppLogsBucketName" }, "none"] } ]
+      },
+      "CreateStack1": {
+         "Fn::Not": [
+            {
+               "Fn::Equals": [
+                  {
+                     "Ref": "stack1URL"
+                  },
+                  ""
+               ]
+            }
+         ]
+      },
+      "CreateStack2": {
+         "Fn::Not": [
+            {
+               "Fn::Equals": [
+                  {
+                     "Ref": "stack2URL"
+                  },
+                  ""
+               ]
+            }
+         ]
+      },
+      "CreateStack3": {
+         "Fn::Not": [
+            {
+               "Fn::Equals": [
+                  {
+                     "Ref": "stack3URL"
+                  },
+                  ""
+               ]
+            }
+         ]
+      },
+      "CreateStack4": {
+         "Fn::Not": [
+            {
+               "Fn::Equals": [
+                  {
+                     "Ref": "stack4URL"
+                  },
+                  ""
+               ]
+            }
+         ]
+      }
+   },
+   "Resources": {
+      "stack1": {
+         "Type": "AWS::CloudFormation::Stack",
+	 "Condition": "CreateStack1",
+         "Properties": {
+            "TemplateURL": {
+               "Ref": "stack1URL"
+            },
+            "TimeoutInMinutes": "20",
+	    "Parameters" : {
+        "pNotifyEmail" : {
+          "Ref" : "pNotifyEmail"
+        },
+		"pCreateCloudTrail" : {
+			"Ref" : "pCreateCloudTrail"
+		},
+		"pS3CloudTrailBucketExisting" : {
+		    "Ref" : "pS3CloudTrailBucketExisting"
+		},
+		"pS3CloudTrailLocal" : {
+		    "Ref" : "pS3CloudTrailLocal"
+		}
+	    }
+         }
+      },
+      "stack2": {
+         "Type": "AWS::CloudFormation::Stack",
+         "Condition": "CreateStack2",
+         "Properties": {
+            "TemplateURL": {
+               "Ref": "stack2URL"
+            },
+            "TimeoutInMinutes": "20",
+            "Parameters": {
+               "pRegionDomain": {
+                  "Ref": "pRegionDomain"
+               },
+               "pRegionAZ1Name": {
+                  "Ref": "pRegionAZ1Name"
+               },
+               "pRegionAZ2Name": {
+                  "Ref": "pRegionAZ2Name"
+               },
+               "pProductionVPCName": {
+                  "Ref": "pProductionVPCName"
+               },
+               "pDevelopmentVPCName": {
+                  "Ref": "pDevelopmentVPCName"
+               },
+               "pProductionCIDR": {
+                  "Ref": "pProductionCIDR"
+               },
+               "pNatInstanceType": {
+                  "Ref": "pNatInstanceType"
+               },
+               "pDMZSubnetACIDR": {
+                  "Ref": "pDMZSubnetACIDR"
+               },
+               "pDMZSubnetBCIDR": {
+                  "Ref": "pDMZSubnetBCIDR"
+               },
+               "pAppPrivateSubnetACIDR": {
+                  "Ref": "pAppPrivateSubnetACIDR"
+               },
+               "pAppPrivateSubnetBCIDR": {
+                  "Ref": "pAppPrivateSubnetBCIDR"
+               },
+               "pDBPrivateSubnetACIDR": {
+                  "Ref": "pDBPrivateSubnetACIDR"
+               },
+               "pManagementCIDR": {
+		    "Fn::If" : [ "CreateVPCManagement", { "Ref" : "pManagementCIDR" },"false"]
+               },
+               "pManagementSubnetACIDR": {
+		    "Fn::If" : [ "CreateVPCManagement", { "Ref" : "pManagementSubnetACIDR" },"false"]
+               },
+               "pManagementSubnetBCIDR": {
+		    "Fn::If" : [ "CreateVPCManagement", { "Ref" : "pManagementSubnetBCIDR" },"false"]
+               },
+               "pDevelopmentCIDR": {
+		  "Fn::If" : [ "CreateVPCDevelopment", { "Ref" : "pDevelopmentCIDR" },"false"]
+               },
+               "pDevSubnetACIDR": {
+                    "Fn::If" : [ "CreateVPCDevelopment", { "Ref" : "pDevSubnetACIDR" },"false"]
+               },
+               "pDevSubnetBCIDR": {
+                    "Fn::If" : [ "CreateVPCDevelopment", { "Ref" : "pDevSubnetBCIDR" },"false"]
+               },
+               "pKeyName": {
+                  "Ref": "pKeyName"
+               },
+               "pDBPrivateSubnetBCIDR": {
+                  "Ref": "pDBPrivateSubnetBCIDR"
+               }
+            }
+         }
+      },
+      "stack3": {
+         "Type": "AWS::CloudFormation::Stack",
+         "Condition": "CreateStack3",
+	 "DependsOn" : "stack2",
+         "Properties": {
+            "TemplateURL": {
+               "Ref": "stack3URL"
+            },
+            "TimeoutInMinutes": "20",
+            "Parameters": {
+               "pProductionVPC": {
+                  "Fn::GetAtt" : [ "stack2", "Outputs.rVPCProduction" ]
+               },
+               "pProductionCIDR": {
+                  "Ref": "pProductionCIDR"
+               },
+               "pDMZSubnetA": {
+			"Fn::GetAtt" : [ "stack2", "Outputs.rDMZSubnetA" ]
+               },
+               "pDMZSubnetB": {
+			"Fn::GetAtt" : [ "stack2", "Outputs.rDMZSubnetB" ]
+               },
+               "pAppPrivateSubnetA": {
+			"Fn::GetAtt" : [ "stack2", "Outputs.rAppPrivateSubnetA" ]
+               },
+               "pAppPrivateSubnetB": {
+			"Fn::GetAtt" : [ "stack2", "Outputs.rAppPrivateSubnetB" ]
+               },
+               "pS3WebContentBucketName" : {
+		"Fn::If" : [ "CreateWebAppBucket", { "Ref" : "pWebContentBucketName" },"false"]
+               },
+               "pS3AppLogsBucketName" : {
+		 "Fn::If" : [ "CreateAppLogsBucket", { "Ref" : "pAppLogsBucketName" },"false"]
+               },
+               "pS3BackupBucketName": {
+		 "Fn::If" : [ "CreateBackupBucket", { "Ref" : "pBackupBucketName" },"false"]
+               },
+               "pVPCManagement": {
+			"Fn::If" : [ "CreateVPCManagement", { "Fn::GetAtt": ["stack2","Outputs.rVPCManagement" ] },"false"]
+               }
+            }
+         }
+      },
+      "stack4": {
+         "Type": "AWS::CloudFormation::Stack",
+	 "DependsOn" : "stack3",
+         "Condition": "CreateStack4",
+         "Properties": {
+            "TemplateURL": {
+               "Ref": "stack4URL"
+            },
+            "TimeoutInMinutes": "30",
+            "Parameters": {
+               "pProductionVPC": {
+		 "Fn::GetAtt" : [ "stack2", "Outputs.rVPCProduction" ]
+               },
+               "pProductionCIDR": {
+                  "Ref": "pProductionCIDR"
+               },
+               "pDMZSubnetA": {
+		 "Fn::GetAtt" : [ "stack2", "Outputs.rDMZSubnetA" ]
+               },
+               "pDMZSubnetB": {
+		 "Fn::GetAtt" : [ "stack2", "Outputs.rDMZSubnetB" ]
+               },
+               "pDBPrivateSubnetA": {
+		 "Fn::GetAtt" : [ "stack2", "Outputs.rDBPrivateSubnetA" ]
+               },
+               "pDBPrivateSubnetB": {
+		 "Fn::GetAtt" : [ "stack2", "Outputs.rDBPrivateSubnetB" ]
+               },
+               "pAppPrivateSubnetA": {
+		 "Fn::GetAtt" : [ "stack2", "Outputs.rAppPrivateSubnetA" ]
+               },
+               "pAppPrivateSubnetB": {
+		 "Fn::GetAtt" : [ "stack2", "Outputs.rAppPrivateSubnetB" ]
+               },
+               "pKeyName": {
+                  "Ref": "pKeyName"
+               },
+               "pNatInstanceType": {
+                  "Ref": "pNatInstanceType"
+               },
+               "pRegionAZ1Name": {
+                  "Ref": "pRegionAZ1Name"
+               },
+               "pRegionAZ2Name": {
+                  "Ref": "pRegionAZ2Name"
+               },
+               "pWebInstanceType": {
+                  "Ref": "pWebInstanceType"
+               },
+               "pAppInstanceType": {
+                  "Ref": "pAppInstanceType"
+               },
+               "pSecurityGroupWeb": {
+                  "Fn::GetAtt": [
+                     "stack3",
+                     "Outputs.rSecurityGroupWeb"
+                  ]
+               },
+               "pSecurityGroupApp": {
+                  "Fn::GetAtt": [
+                     "stack3",
+                     "Outputs.rSecurityGroupApp"
+                  ]
+               },
+               "pSecurityGroupMgmtBastionHost": {
+                  "Fn::GetAtt": [
+                     "stack3",
+                     "Outputs.rSecurityGroupMgmtBastionHost"
+                  ]
+               },
+               "pWebServerAMI": {
+                  "Ref": "pWebServerAMI"
+               },
+               "pAppAmi": {
+                  "Ref": "pAppAmi"
+               },
+	       "pSecurityGroupRDS" : {
+		  "Fn::GetAtt" : [ "stack3","Outputs.rSecurityGroupRDS" ]
+		},
+	       "pDBName" : { "Ref" : "pDBName" },
+		"pDBUser" : { "Ref" : "pDBUser" },
+		"pDBPassword" : { "Ref" : "pDBPassword" },
+		"pDBClass" : { "Ref" : "pDBClass" },
+		"pDBAllocatedStorage" : { "Ref" : "pDBAllocatedStorage" },
+               "pManagementSubnetA": {
+		   "Fn::If" : [ "CreateVPCManagement", { "Fn::GetAtt": ["stack2","Outputs.rManagementSubnetA" ] },"false"]
+               }
+		}
+         }
+      }
+   },
+   "Outputs": {
+      "TemplateType": {
+         "Value": "Standard Multi-Tier Web Application"
+      },
+      "TemplateVersion": {
+         "Value": "1.0"
+      }
+   }
+}
