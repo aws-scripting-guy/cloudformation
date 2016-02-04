@@ -1,0 +1,1457 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "Provides networking configuration for a standard, public facing application, with optional management and development VPCs",
+    "Metadata": {
+        "Stack": {
+            "Value": "2"
+        },
+        "VersionDate": {
+            "Value": "09292015"
+        },
+        "Identifier": {
+            "Value": "stack2-network-01"
+        },
+        "Input": {
+            "Description": "CIDR blocks, VPC names, KeyName, EC2 instance size"
+        },
+        "Output": {
+            "Description": "Outputs ID of all deployed resources"
+        }
+    },
+    "Parameters": {
+        "pRegionDomain": {
+            "Description": "Region name where resources will deploy",
+            "Type": "String",
+            "Default": "us-east-1.compute.internal"
+        },
+        "pRegionAZ1Name": {
+            "Description": "Availability Zone 1 Name in Region",
+            "Type": "String",
+            "Default": "us-east-1b"
+        },
+        "pRegionAZ2Name": {
+            "Description": "Availability Zone 2 Name in Region",
+            "Type": "String",
+            "Default": "us-west-1c"
+        },
+        "pProductionVPCName": {
+            "Description": "Production VPC Name",
+            "Type": "String",
+            "Default": "Production"
+        },
+        "pDevelopmentVPCName": {
+            "Description": "Development VPC Name",
+            "Type": "String",
+            "Default": "Development"
+        },
+        "pProductionCIDR": {
+            "Description": "CIDR block for Production VPC",
+            "Type": "String",
+            "Default": "10.100.0.0/16"
+        },
+        "pManagementVPCName": {
+            "Description": "Management VPC Name",
+            "Type": "String",
+            "Default": "Management"
+        },
+        "pManagementCIDR": {
+            "Description": "CIDR block for Management VPC",
+            "Type": "String",
+            "Default": "10.10.0.0/16"
+        },
+        "pManagementSubnetACIDR": {
+            "Description": "CIDR block for Management AZ-1a subnet",
+            "Type": "String",
+            "Default": "10.10.1.0/24"
+        },
+        "pManagementSubnetBCIDR": {
+            "Description": "CIDR block for Management AZ-1b subnet",
+            "Type": "String",
+            "Default": "10.10.2.0/24"
+        },
+        "pDMZSubnetACIDR": {
+            "Description": "CIDR block for DMZ AZ-1b subnet",
+            "Type": "String",
+            "Default": "10.100.1.0/24"
+        },
+        "pDMZSubnetBCIDR": {
+            "Description": "CIDR block for DMZ AZ-1b subnet",
+            "Type": "String",
+            "Default": "10.100.2.0/24"
+        },
+        "pAppPrivateSubnetACIDR": {
+            "Description": "CIDR block for Public AZ-1a subnet",
+            "Type": "String",
+            "Default": "10.100.10.0/24"
+        },
+        "pAppPrivateSubnetBCIDR": {
+            "Description": "CIDR block for Public AZ-1b subnet",
+            "Type": "String",
+            "Default": "10.100.11.0/24"
+        },
+        "pDBPrivateSubnetACIDR": {
+            "Description": "CIDR block for Private AZ-1a subnet",
+            "Type": "String",
+            "Default": "10.100.20.0/24"
+        },
+        "pDBPrivateSubnetBCIDR": {
+            "Description": "CIDR block for Private AZ-1b subnet",
+            "Type": "String",
+            "Default": "10.100.21.0/24"
+        },
+        "pDevelopmentCIDR": {
+            "Description": "CIDR block for Development VPC",
+            "Type": "String",
+            "Default": "10.20.0.0/16"
+        },
+        "pDevSubnetACIDR": {
+            "Description": "CIDR block for Development AZ-1a subnet",
+            "Type": "String",
+            "Default": "10.20.1.0/24"
+        },
+        "pDevSubnetBCIDR": {
+            "Description": "CIDR block for Development AZ-1b subnet",
+            "Type": "String",
+            "Default": "10.20.2.0/24"
+        },
+        "pKeyName": {
+            "Description": "Key Name for Instance",
+            "Type": "String",
+            "Default": ""
+        },
+        "pNatInstanceType": {
+            "Description": "Nat EC2 instance type",
+            "Type": "String",
+            "Default": "t2.micro"
+        }
+    },
+    "Conditions": {
+        "cCreateVPCManagement": {
+            "Fn::Not": [
+                {
+                    "Fn::Equals": [
+                        {
+                            "Ref": "pManagementCIDR"
+                        },
+                        "false"
+                    ]
+                }
+            ]
+        },
+        "cCreateVPCDevelopment": {
+            "Fn::Not": [
+                {
+                    "Fn::Equals": [
+                        {
+                            "Ref": "pDevelopmentCIDR"
+                        },
+                        "false"
+                    ]
+                }
+            ]
+        }
+    },
+    "Mappings": {
+        "AWSInstanceType2Arch": {
+            "t1.micro": {
+                "Arch": "PV64"
+            },
+            "t2.micro": {
+                "Arch": "HVM64"
+            },
+            "t2.small": {
+                "Arch": "HVM64"
+            },
+            "t2.medium": {
+                "Arch": "HVM64"
+            },
+            "m1.small": {
+                "Arch": "PV64"
+            },
+            "m1.medium": {
+                "Arch": "PV64"
+            },
+            "m1.large": {
+                "Arch": "PV64"
+            },
+            "m1.xlarge": {
+                "Arch": "PV64"
+            },
+            "m2.xlarge": {
+                "Arch": "PV64"
+            },
+            "m2.2xlarge": {
+                "Arch": "PV64"
+            },
+            "m2.4xlarge": {
+                "Arch": "PV64"
+            },
+            "m3.medium": {
+                "Arch": "HVM64"
+            },
+            "m3.large": {
+                "Arch": "HVM64"
+            },
+            "m3.xlarge": {
+                "Arch": "HVM64"
+            },
+            "m3.2xlarge": {
+                "Arch": "HVM64"
+            },
+            "c1.medium": {
+                "Arch": "PV64"
+            },
+            "c1.xlarge": {
+                "Arch": "PV64"
+            },
+            "c3.large": {
+                "Arch": "HVM64"
+            },
+            "c3.xlarge": {
+                "Arch": "HVM64"
+            },
+            "c3.2xlarge": {
+                "Arch": "HVM64"
+            },
+            "c3.4xlarge": {
+                "Arch": "HVM64"
+            },
+            "c3.8xlarge": {
+                "Arch": "HVM64"
+            },
+            "g2.2xlarge": {
+                "Arch": "HVMG2"
+            },
+            "r3.large": {
+                "Arch": "HVM64"
+            },
+            "r3.xlarge": {
+                "Arch": "HVM64"
+            },
+            "r3.2xlarge": {
+                "Arch": "HVM64"
+            },
+            "r3.4xlarge": {
+                "Arch": "HVM64"
+            },
+            "r3.8xlarge": {
+                "Arch": "HVM64"
+            },
+            "i2.xlarge": {
+                "Arch": "HVM64"
+            },
+            "i2.2xlarge": {
+                "Arch": "HVM64"
+            },
+            "i2.4xlarge": {
+                "Arch": "HVM64"
+            },
+            "i2.8xlarge": {
+                "Arch": "HVM64"
+            },
+            "hi1.4xlarge": {
+                "Arch": "HVM64"
+            },
+            "hs1.8xlarge": {
+                "Arch": "HVM64"
+            },
+            "cr1.8xlarge": {
+                "Arch": "HVM64"
+            },
+            "cc2.8xlarge": {
+                "Arch": "HVM64"
+            }
+        },
+        "AWSRegionArch2AMI": {
+            "us-gov-west-1": {
+                "PV64": "ami-7bb9d858",
+                "HVM64": "ami-79b9d85a",
+                "HVMG2": "ami-7db9d85e"
+            },
+            "us-east-1": {
+                "PV64": "ami-50842d38",
+                "HVM64": "ami-08842d60",
+                "HVMG2": "ami-3a329952"
+            },
+            "us-west-2": {
+                "PV64": "ami-af86c69f",
+                "HVM64": "ami-8786c6b7",
+                "HVMG2": "ami-47296a77"
+            },
+            "us-west-1": {
+                "PV64": "ami-c7a8a182",
+                "HVM64": "ami-cfa8a18a",
+                "HVMG2": "ami-331b1376"
+            },
+            "eu-west-1": {
+                "PV64": "ami-aa8f28dd",
+                "HVM64": "ami-748e2903",
+                "HVMG2": "ami-00913777"
+            },
+            "ap-southeast-1": {
+                "PV64": "ami-20e1c572",
+                "HVM64": "ami-d6e1c584",
+                "HVMG2": "ami-fabe9aa8"
+            },
+            "ap-northeast-1": {
+                "PV64": "ami-21072820",
+                "HVM64": "ami-35072834",
+                "HVMG2": "ami-5dd1ff5c"
+            },
+            "ap-southeast-2": {
+                "PV64": "ami-8b4724b1",
+                "HVM64": "ami-fd4724c7",
+                "HVMG2": "ami-e98ae9d3"
+            },
+            "sa-east-1": {
+                "PV64": "ami-9d6cc680",
+                "HVM64": "ami-956cc688",
+                "HVMG2": "NOT_SUPPORTED"
+            },
+            "cn-north-1": {
+                "PV64": "ami-a857c591",
+                "HVM64": "ami-ac57c595",
+                "HVMG2": "NOT_SUPPORTED"
+            },
+            "eu-central-1": {
+                "PV64": "ami-a03503bd",
+                "HVM64": "ami-b43503a9",
+                "HVMG2": "ami-b03503ad"
+            }
+        }
+    },
+    "Resources": {
+        "rVPCProduction": {
+            "Type": "AWS::EC2::VPC",
+            "Properties": {
+                "CidrBlock": {
+                    "Ref": "pProductionCIDR"
+                },
+                "InstanceTenancy": "default",
+                "EnableDnsSupport": "true",
+                "EnableDnsHostnames": "true",
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": {
+                            "Ref": "pProductionVPCName"
+                        }
+                    }
+                ]
+            }
+        },
+        "rVPCDevelopment": {
+            "Condition": "cCreateVPCDevelopment",
+            "Type": "AWS::EC2::VPC",
+            "Properties": {
+                "CidrBlock": {
+                    "Ref": "pDevelopmentCIDR"
+                },
+                "InstanceTenancy": "default",
+                "EnableDnsSupport": "true",
+                "EnableDnsHostnames": "true",
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": {
+                            "Ref": "pDevelopmentVPCName"
+                        }
+                    }
+                ]
+            }
+        },
+        "rVPCManagement": {
+            "Condition": "cCreateVPCManagement",
+            "Type": "AWS::EC2::VPC",
+            "Properties": {
+                "CidrBlock": {
+                    "Ref": "pManagementCIDR"
+                },
+                "InstanceTenancy": "default",
+                "EnableDnsSupport": "true",
+                "EnableDnsHostnames": "true",
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": {
+                            "Ref": "pManagementVPCName"
+                        }
+                    }
+                ]
+            }
+        },
+        "rSecurityGroupProductionNAT": {
+            "Type": "AWS::EC2::SecurityGroup",
+            "Properties": {
+                "GroupDescription": "Allow Nat from production",
+                "VpcId": {
+                    "Ref": "rVPCProduction"
+                },
+                "SecurityGroupIngress": [
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "80",
+                        "ToPort": "80",
+                        "CidrIp": {
+                            "Ref": "pProductionCIDR"
+                        }
+                    },
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "443",
+                        "ToPort": "443",
+                        "CidrIp": {
+                            "Ref": "pProductionCIDR"
+                        }
+                    }
+                ]
+            }
+        },
+        "rSecurityGroupManagementNAT": {
+            "Condition": "cCreateVPCManagement",
+            "Type": "AWS::EC2::SecurityGroup",
+            "Properties": {
+                "GroupDescription": "Allow Nat from Management VPC",
+                "VpcId": {
+                    "Ref": "rVPCManagement"
+                },
+                "SecurityGroupIngress": [
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "80",
+                        "ToPort": "80",
+                        "CidrIp": {
+                            "Ref": "pManagementCIDR"
+                        }
+                    },
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "443",
+                        "ToPort": "443",
+                        "CidrIp": {
+                            "Ref": "pManagementCIDR"
+                        }
+                    }
+                ]
+            }
+        },
+        "rSecurityGroupSSHFromProd": {
+            "Type": "AWS::EC2::SecurityGroup",
+            "Properties": {
+                "GroupDescription": "Enable SSH access via port 22",
+                "VpcId": {
+                    "Ref": "rVPCProduction"
+                },
+                "SecurityGroupIngress": [
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "22",
+                        "ToPort": "22",
+                        "CidrIp": {
+                            "Ref": "pProductionCIDR"
+                        }
+                    }
+                ]
+            }
+        },
+        "rSecurityGroupSSHFromMgmt": {
+            "Condition": "cCreateVPCManagement",
+            "Type": "AWS::EC2::SecurityGroup",
+            "Properties": {
+                "GroupDescription": "Enable SSH access via port 22",
+                "VpcId": {
+                    "Ref": "rVPCManagement"
+                },
+                "SecurityGroupIngress": [
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "22",
+                        "ToPort": "22",
+                        "CidrIp": {
+                            "Ref": "pManagementCIDR"
+                        }
+                    }
+                ]
+            }
+        },
+        "rPeeringConnMgmtProd": {
+            "Condition": "cCreateVPCManagement",
+            "Type": "AWS::EC2::VPCPeeringConnection",
+            "DependsOn": [
+                "rVPCProduction"
+            ],
+            "Properties": {
+                "VpcId": {
+                    "Ref": "rVPCManagement"
+                },
+                "PeerVpcId": {
+                    "Ref": "rVPCProduction"
+                }
+            }
+        },
+        "rManagementSubnetA": {
+            "Condition": "cCreateVPCManagement",
+            "Type": "AWS::EC2::Subnet",
+            "Properties": {
+                "CidrBlock": {
+                    "Ref": "pManagementSubnetACIDR"
+                },
+                "AvailabilityZone": {
+                    "Ref": "pRegionAZ1Name"
+                },
+                "VpcId": {
+                    "Ref": "rVPCManagement"
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "Management Subnet A"
+                    }
+                ]
+            }
+        },
+        "rManagementSubnetB": {
+            "Condition": "cCreateVPCManagement",
+            "Type": "AWS::EC2::Subnet",
+            "Properties": {
+                "CidrBlock": {
+                    "Ref": "pManagementSubnetBCIDR"
+                },
+                "AvailabilityZone": {
+                    "Ref": "pRegionAZ2Name"
+                },
+                "VpcId": {
+                    "Ref": "rVPCManagement"
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "Management Subnet B"
+                    }
+                ]
+            }
+        },
+        "rDMZSubnetA": {
+            "Type": "AWS::EC2::Subnet",
+            "Properties": {
+                "CidrBlock": {
+                    "Ref": "pDMZSubnetACIDR"
+                },
+                "AvailabilityZone": {
+                    "Ref": "pRegionAZ1Name"
+                },
+                "VpcId": {
+                    "Ref": "rVPCProduction"
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "DMZ Subnet A"
+                    }
+                ]
+            }
+        },
+        "rDMZSubnetB": {
+            "Type": "AWS::EC2::Subnet",
+            "Properties": {
+                "CidrBlock": {
+                    "Ref": "pDMZSubnetBCIDR"
+                },
+                "AvailabilityZone": {
+                    "Ref": "pRegionAZ2Name"
+                },
+                "VpcId": {
+                    "Ref": "rVPCProduction"
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "DMZ Subnet B"
+                    }
+                ]
+            }
+        },
+        "rAppPrivateSubnetA": {
+            "Type": "AWS::EC2::Subnet",
+            "Properties": {
+                "CidrBlock": {
+                    "Ref": "pAppPrivateSubnetACIDR"
+                },
+                "AvailabilityZone": {
+                    "Ref": "pRegionAZ1Name"
+                },
+                "VpcId": {
+                    "Ref": "rVPCProduction"
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "WebApp Subnet A"
+                    }
+                ]
+            }
+        },
+        "rAppPrivateSubnetB": {
+            "Type": "AWS::EC2::Subnet",
+            "Properties": {
+                "CidrBlock": {
+                    "Ref": "pAppPrivateSubnetBCIDR"
+                },
+                "AvailabilityZone": {
+                    "Ref": "pRegionAZ2Name"
+                },
+                "VpcId": {
+                    "Ref": "rVPCProduction"
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "WebApp Subnet B"
+                    }
+                ]
+            }
+        },
+        "rDBPrivateSubnetA": {
+            "Type": "AWS::EC2::Subnet",
+            "Properties": {
+                "CidrBlock": {
+                    "Ref": "pDBPrivateSubnetACIDR"
+                },
+                "AvailabilityZone": {
+                    "Ref": "pRegionAZ1Name"
+                },
+                "VpcId": {
+                    "Ref": "rVPCProduction"
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "DB Subnet A"
+                    }
+                ]
+            }
+        },
+        "rDBPrivateSubnetB": {
+            "Type": "AWS::EC2::Subnet",
+            "Properties": {
+                "CidrBlock": {
+                    "Ref": "pDBPrivateSubnetBCIDR"
+                },
+                "AvailabilityZone": {
+                    "Ref": "pRegionAZ2Name"
+                },
+                "VpcId": {
+                    "Ref": "rVPCProduction"
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "DB Subnet B"
+                    }
+                ]
+            }
+        },
+        "rIGWProd": {
+            "Type": "AWS::EC2::InternetGateway",
+            "Properties": {
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "Production Internet Gateway"
+                    }
+                ]
+            }
+        },
+        "rIGWManagement": {
+            "Condition": "cCreateVPCManagement",
+            "Type": "AWS::EC2::InternetGateway",
+            "Properties": {
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "Management Internet Gateway"
+                    }
+                ]
+            }
+        },
+        "rDHCPoptions": {
+            "Type": "AWS::EC2::DHCPOptions",
+            "Properties": {
+                "DomainName": {
+                    "Ref": "pRegionDomain"
+                },
+                "DomainNameServers": [
+                    "AmazonProvidedDNS"
+                ]
+            }
+        },
+        "rNACLProduction": {
+            "Type": "AWS::EC2::NetworkAcl",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "rVPCProduction"
+                }
+            }
+        },
+        "rRouteTableMain": {
+            "Type": "AWS::EC2::RouteTable",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "rVPCProduction"
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "Route table for Production DMZ"
+                    }
+                ]
+            }
+        },
+        "rRouteTableMgmt": {
+            "Condition": "cCreateVPCManagement",
+            "Type": "AWS::EC2::RouteTable",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "rVPCManagement"
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "Route table for Management VPC"
+                    }
+                ]
+            }
+        },
+        "rRouteMgmtIGW": {
+            "Condition": "cCreateVPCManagement",
+            "Type": "AWS::EC2::Route",
+            "Properties": {
+                "RouteTableId": {
+                    "Ref": "rRouteTableMgmt"
+                },
+                "GatewayId": {
+                    "Ref": "rIGWManagement"
+                },
+                "DestinationCidrBlock": "0.0.0.0/0"
+            }
+        },
+        "rRouteMgmtProdPeering": {
+            "Condition": "cCreateVPCManagement",
+            "Type": "AWS::EC2::Route",
+            "Properties": {
+                "RouteTableId": {
+                    "Ref": "rRouteTableMgmt"
+                },
+                "VpcPeeringConnectionId": {
+                    "Ref": "rPeeringConnMgmtProd"
+                },
+                "DestinationCidrBlock": {
+                    "Ref": "pProductionCIDR"
+                }
+            }
+        },
+        "rrRouteAssocMgmtA": {
+            "Condition": "cCreateVPCManagement",
+            "Type": "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties": {
+                "RouteTableId": {
+                    "Ref": "rRouteTableMgmt"
+                },
+                "SubnetId": {
+                    "Ref": "rManagementSubnetA"
+                }
+            }
+        },
+        "rrRouteAssocMgmtB": {
+            "Condition": "cCreateVPCManagement",
+            "Type": "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties": {
+                "RouteTableId": {
+                    "Ref": "rRouteTableMgmt"
+                },
+                "SubnetId": {
+                    "Ref": "rManagementSubnetB"
+                }
+            }
+        },
+        "rEIPProdNAT": {
+            "Type": "AWS::EC2::EIP",
+            "Properties": {
+                "Domain": "vpc"
+            }
+        },
+        "AssociaterEIPProdNAT": {
+            "Type": "AWS::EC2::EIPAssociation",
+            "Properties": {
+                "AllocationId": {
+                    "Fn::GetAtt": [
+                        "rEIPProdNAT",
+                        "AllocationId"
+                    ]
+                },
+                "NetworkInterfaceId": {
+                    "Ref": "rENIProductionNAT"
+                }
+            }
+        },
+        "rENIProductionNAT": {
+            "Type": "AWS::EC2::NetworkInterface",
+            "Properties": {
+                "SubnetId": {
+                    "Ref": "rDMZSubnetA"
+                },
+                "GroupSet": [
+                    {
+                        "Ref": "rSecurityGroupSSHFromProd"
+                    },
+                    {
+                        "Ref": "rSecurityGroupProductionNAT"
+                    }
+                ],
+                "Description": "Interface for ProductionNat device",
+                "Tags": [
+                    {
+                        "Key": "Network",
+                        "Value": "ProductionNatDevice"
+                    }
+                ]
+            }
+        },
+        "rEIPManagementNAT": {
+            "Condition": "cCreateVPCManagement",
+            "Type": "AWS::EC2::EIP",
+            "Properties": {
+                "Domain": "vpc"
+            }
+        },
+        "AssociaterEIPManagementNAT": {
+            "Condition": "cCreateVPCManagement",
+            "DependsOn": "rManagementNATInstanceInterface",
+            "Type": "AWS::EC2::EIPAssociation",
+            "Properties": {
+                "AllocationId": {
+                    "Fn::GetAtt": [
+                        "rEIPManagementNAT",
+                        "AllocationId"
+                    ]
+                },
+                "NetworkInterfaceId": {
+                    "Ref": "rManagementNATInstanceInterface"
+                }
+            }
+        },
+        "rManagementNATInstanceInterface": {
+            "Condition": "cCreateVPCManagement",
+            "Type": "AWS::EC2::NetworkInterface",
+            "Properties": {
+                "SubnetId": {
+                    "Ref": "rManagementSubnetA"
+                },
+                "GroupSet": [
+                    {
+                        "Ref": "rSecurityGroupSSHFromMgmt"
+                    },
+                    {
+                        "Ref": "rSecurityGroupManagementNAT"
+                    }
+                ],
+                "Description": "Interface for Nat device",
+                "Tags": [
+                    {
+                        "Key": "Network",
+                        "Value": "rManagementNATInstanceInterface"
+                    }
+                ]
+            }
+        },
+        "rProductionNATInstance": {
+            "Type": "AWS::EC2::Instance",
+            "Properties": {
+                "InstanceType": {
+                    "Ref": "pNatInstanceType"
+                },
+                "SourceDestCheck": false,
+                "KeyName": {
+                    "Ref": "pKeyName"
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "Production NAT Device for Patching"
+                    }
+                ],
+                "UserData": {
+                    "Fn::Base64": {
+                        "Fn::Join": [
+                            "",
+                            [
+                                "#!/bin/sh\n",
+                                "echo 1 > /proc/sys/net/ipv4/ip_forward\n",
+                                "echo 0 > /proc/sys/net/ipv4/conf/eth0/send_redirects\n",
+                                "/sbin/iptables -t nat -A POSTROUTING -o eth0 -s 0.0.0.0/0 -j MASQUERADE\n",
+                                "/sbin/iptables-save > /etc/sysconfig/iptables\n",
+                                "mkdir -p /etc/sysctl.d/\n",
+                                "cat <<EOF > /etc/sysctl.d/nat.conf\n",
+                                "net.ipv4.ip_forward = 1 \n",
+                                "net.ipv4.conf.eth0.send_redirects = 0\n",
+                                "EOF\n"
+                            ]
+                        ]
+                    }
+                },
+                "ImageId": {
+                    "Fn::FindInMap": [
+                        "AWSRegionArch2AMI",
+                        {
+                            "Ref": "AWS::Region"
+                        },
+                        {
+                            "Fn::FindInMap": [
+                                "AWSInstanceType2Arch",
+                                {
+                                    "Ref": "pNatInstanceType"
+                                },
+                                "Arch"
+                            ]
+                        }
+                    ]
+                },
+                "NetworkInterfaces": [
+                    {
+                        "NetworkInterfaceId": {
+                            "Ref": "rENIProductionNAT"
+                        },
+                        "DeviceIndex": "0"
+                    }
+                ]
+            }
+        },
+        "rManagementNATInstance": {
+            "Condition": "cCreateVPCManagement",
+            "Type": "AWS::EC2::Instance",
+            "Properties": {
+                "InstanceType": {
+                    "Ref": "pNatInstanceType"
+                },
+                "SourceDestCheck": false,
+                "KeyName": {
+                    "Ref": "pKeyName"
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "Management VPC NAT Device for Patching"
+                    }
+                ],
+                "UserData": {
+                    "Fn::Base64": {
+                        "Fn::Join": [
+                            "",
+                            [
+                                "#!/bin/sh\n",
+                                "echo 1 > /proc/sys/net/ipv4/ip_forward\n",
+                                "echo 0 > /proc/sys/net/ipv4/conf/eth0/send_redirects\n",
+                                "/sbin/iptables -t nat -A POSTROUTING -o eth0 -s 0.0.0.0/0 -j MASQUERADE\n",
+                                "/sbin/iptables-save > /etc/sysconfig/iptables\n",
+                                "mkdir -p /etc/sysctl.d/\n",
+                                "cat <<EOF > /etc/sysctl.d/nat.conf\n",
+                                "net.ipv4.ip_forward = 1 \n",
+                                "net.ipv4.conf.eth0.send_redirects = 0\n",
+                                "EOF\n"
+                            ]
+                        ]
+                    }
+                },
+                "ImageId": {
+                    "Fn::FindInMap": [
+                        "AWSRegionArch2AMI",
+                        {
+                            "Ref": "AWS::Region"
+                        },
+                        {
+                            "Fn::FindInMap": [
+                                "AWSInstanceType2Arch",
+                                {
+                                    "Ref": "pNatInstanceType"
+                                },
+                                "Arch"
+                            ]
+                        }
+                    ]
+                },
+                "NetworkInterfaces": [
+                    {
+                        "NetworkInterfaceId": {
+                            "Ref": "rManagementNATInstanceInterface"
+                        },
+                        "DeviceIndex": "0"
+                    }
+                ]
+            }
+        },
+        "rRouteProdIGW": {
+            "Type": "AWS::EC2::Route",
+            "DependsOn": "rGWAttachmentProdIGW",
+            "Properties": {
+                "RouteTableId": {
+                    "Ref": "rRouteTableMain"
+                },
+                "GatewayId": {
+                    "Ref": "rIGWProd"
+                },
+                "DestinationCidrBlock": "0.0.0.0/0"
+            }
+        },
+        "rRouteProdtoMgmtDMZ": {
+            "Condition": "cCreateVPCManagement",
+            "Type": "AWS::EC2::Route",
+            "Properties": {
+                "RouteTableId": {
+                    "Ref": "rRouteTableMain"
+                },
+                "VpcPeeringConnectionId": {
+                    "Ref": "rPeeringConnMgmtProd"
+                },
+                "DestinationCidrBlock": {
+                    "Ref": "pManagementCIDR"
+                }
+            }
+        },
+        "rRouteProdPrivateNAT": {
+            "Type": "AWS::EC2::Route",
+            "Properties": {
+                "DestinationCidrBlock": "0.0.0.0/0",
+                "RouteTableId": {
+                    "Ref": "rRouteTableProdPrivate"
+                },
+                "InstanceId": {
+                    "Ref": "rProductionNATInstance"
+                }
+            }
+        },
+        "rRouteProdPrivateMgmtPeering": {
+            "Condition": "cCreateVPCManagement",
+            "Type": "AWS::EC2::Route",
+            "Properties": {
+                "DestinationCidrBlock": {
+                    "Ref": "pManagementCIDR"
+                },
+                "RouteTableId": {
+                    "Ref": "rRouteTableProdPrivate"
+                },
+                "VpcPeeringConnectionId": {
+                    "Ref": "rPeeringConnMgmtProd"
+                }
+            }
+        },
+        "rRouteMgmtDevPeering": {
+            "Condition": "cCreateVPCManagement",
+            "Condition": "cCreateVPCDevelopment",
+            "Type": "AWS::EC2::Route",
+            "Properties": {
+                "RouteTableId": {
+                    "Ref": "rRouteTableDev"
+                },
+                "VpcPeeringConnectionId": {
+                    "Ref": "rPeeringConnMgmtDev"
+                },
+                "DestinationCidrBlock": {
+                    "Ref": "pManagementCIDR"
+                }
+            }
+        },
+        "rRouteAssocProdDMZA": {
+            "Type": "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties": {
+                "RouteTableId": {
+                    "Ref": "rRouteTableMain"
+                },
+                "SubnetId": {
+                    "Ref": "rDMZSubnetA"
+                }
+            }
+        },
+        "rRouteAssocProdDMZB": {
+            "Type": "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties": {
+                "RouteTableId": {
+                    "Ref": "rRouteTableMain"
+                },
+                "SubnetId": {
+                    "Ref": "rDMZSubnetB"
+                }
+            }
+        },
+        "rAppPrivateSubnetAssoicationA": {
+            "Type": "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties": {
+                "RouteTableId": {
+                    "Ref": "rRouteTableProdPrivate"
+                },
+                "SubnetId": {
+                    "Ref": "rAppPrivateSubnetA"
+                }
+            }
+        },
+        "rAppPrivateSubnetAssoicationB": {
+            "Type": "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties": {
+                "RouteTableId": {
+                    "Ref": "rRouteTableProdPrivate"
+                },
+                "SubnetId": {
+                    "Ref": "rAppPrivateSubnetB"
+                }
+            }
+        },
+        "rrRouteAssocDBPrivateA": {
+            "Type": "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties": {
+                "RouteTableId": {
+                    "Ref": "rRouteTableProdPrivate"
+                },
+                "SubnetId": {
+                    "Ref": "rDBPrivateSubnetA"
+                }
+            }
+        },
+        "rrRouteAssocDBPrivateB": {
+            "Type": "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties": {
+                "RouteTableId": {
+                    "Ref": "rRouteTableProdPrivate"
+                },
+                "SubnetId": {
+                    "Ref": "rDBPrivateSubnetB"
+                }
+            }
+        },
+        "rRouteTableProdPrivate": {
+            "Type": "AWS::EC2::RouteTable",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "rVPCProduction"
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "Route Table for Production Private Networks"
+                    }
+                ]
+            }
+        },
+        "rNACLRuleAllowAllEgress": {
+            "Type": "AWS::EC2::NetworkAclEntry",
+            "Properties": {
+                "CidrBlock": "0.0.0.0/0",
+                "Egress": true,
+                "Protocol": "-1",
+                "RuleAction": "allow",
+                "RuleNumber": "100",
+                "NetworkAclId": {
+                    "Ref": "rNACLProduction"
+                }
+            }
+        },
+        "rNACLRuleAllowAllIngress": {
+            "Type": "AWS::EC2::NetworkAclEntry",
+            "Properties": {
+                "CidrBlock": "0.0.0.0/0",
+                "Protocol": "-1",
+                "RuleAction": "allow",
+                "RuleNumber": "100",
+                "NetworkAclId": {
+                    "Ref": "rNACLProduction"
+                }
+            }
+        },
+        "subnetrNACLRuleAllowAllEgress": {
+            "Type": "AWS::EC2::SubnetNetworkAclAssociation",
+            "Properties": {
+                "NetworkAclId": {
+                    "Ref": "rNACLProduction"
+                },
+                "SubnetId": {
+                    "Ref": "rAppPrivateSubnetB"
+                }
+            }
+        },
+        "subnetrNACLRuleAllowAllIngress": {
+            "Type": "AWS::EC2::SubnetNetworkAclAssociation",
+            "Properties": {
+                "NetworkAclId": {
+                    "Ref": "rNACLProduction"
+                },
+                "SubnetId": {
+                    "Ref": "rDMZSubnetA"
+                }
+            }
+        },
+        "rNACLAssocDMZB": {
+            "Type": "AWS::EC2::SubnetNetworkAclAssociation",
+            "Properties": {
+                "NetworkAclId": {
+                    "Ref": "rNACLProduction"
+                },
+                "SubnetId": {
+                    "Ref": "rDMZSubnetB"
+                }
+            }
+        },
+        "rNACLAssocAppPrivA": {
+            "Type": "AWS::EC2::SubnetNetworkAclAssociation",
+            "Properties": {
+                "NetworkAclId": {
+                    "Ref": "rNACLProduction"
+                },
+                "SubnetId": {
+                    "Ref": "rAppPrivateSubnetA"
+                }
+            }
+        },
+        "rGWAttachmentProdIGW": {
+            "Type": "AWS::EC2::VPCGatewayAttachment",
+            "DependsOn": "rIGWProd",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "rVPCProduction"
+                },
+                "InternetGatewayId": {
+                    "Ref": "rIGWProd"
+                }
+            }
+        },
+        "rGWAttachmentMgmtIGW": {
+            "Condition": "cCreateVPCManagement",
+            "Type": "AWS::EC2::VPCGatewayAttachment",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "rVPCManagement"
+                },
+                "InternetGatewayId": {
+                    "Ref": "rIGWManagement"
+                }
+            }
+        },
+        "rGWAttachmentDevIGW": {
+            "Type": "AWS::EC2::VPCGatewayAttachment",
+            "Condition": "cCreateVPCDevelopment",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "rVPCDevelopment"
+                },
+                "InternetGatewayId": {
+                    "Ref": "rIGWDev"
+                }
+            }
+        },
+        "rDHCPOptionsAssocProd": {
+            "Type": "AWS::EC2::VPCDHCPOptionsAssociation",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "rVPCProduction"
+                },
+                "DhcpOptionsId": {
+                    "Ref": "rDHCPoptions"
+                }
+            }
+        },
+        "rDevSubnetA": {
+            "Type": "AWS::EC2::Subnet",
+            "Condition": "cCreateVPCDevelopment",
+            "Properties": {
+                "CidrBlock": {
+                    "Ref": "pDevSubnetACIDR"
+                },
+                "AvailabilityZone": {
+                    "Ref": "pRegionAZ1Name"
+                },
+                "VpcId": {
+                    "Ref": "rVPCDevelopment"
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "Development Subnet A"
+                    }
+                ]
+            }
+        },
+        "rDevSubnetB": {
+            "Type": "AWS::EC2::Subnet",
+            "Condition": "cCreateVPCDevelopment",
+            "Properties": {
+                "CidrBlock": {
+                    "Ref": "pDevSubnetBCIDR"
+                },
+                "AvailabilityZone": {
+                    "Ref": "pRegionAZ2Name"
+                },
+                "VpcId": {
+                    "Ref": "rVPCDevelopment"
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "Development Subnet B"
+                    }
+                ]
+            }
+        },
+        "rIGWDev": {
+            "Type": "AWS::EC2::InternetGateway",
+            "Condition": "cCreateVPCDevelopment",
+            "Properties": {
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "Development Internet Gateway"
+                    }
+                ]
+            }
+        },
+        "rRouteTableDev": {
+            "Type": "AWS::EC2::RouteTable",
+            "Condition": "cCreateVPCDevelopment",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "rVPCDevelopment"
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "Route table for Development"
+                    }
+                ]
+            }
+        },
+        "rRouteDevIGW": {
+            "Type": "AWS::EC2::Route",
+            "Condition": "cCreateVPCDevelopment",
+            "Properties": {
+                "RouteTableId": {
+                    "Ref": "rRouteTableDev"
+                },
+                "GatewayId": {
+                    "Ref": "rIGWDev"
+                },
+                "DestinationCidrBlock": "0.0.0.0/0"
+            }
+        },
+        "rDevSubnetAAssociation": {
+            "Type": "AWS::EC2::SubnetRouteTableAssociation",
+            "Condition": "cCreateVPCDevelopment",
+            "Properties": {
+                "RouteTableId": {
+                    "Ref": "rRouteTableDev"
+                },
+                "SubnetId": {
+                    "Ref": "rDevSubnetA"
+                }
+            }
+        },
+        "rDevSubnetBAssociation": {
+            "Type": "AWS::EC2::SubnetRouteTableAssociation",
+            "Condition": "cCreateVPCDevelopment",
+            "Properties": {
+                "RouteTableId": {
+                    "Ref": "rRouteTableDev"
+                },
+                "SubnetId": {
+                    "Ref": "rDevSubnetB"
+                }
+            }
+        },
+        "rPeeringConnMgmtDev": {
+            "Condition": "cCreateVPCManagement",
+            "Condition": "cCreateVPCDevelopment",
+            "Type": "AWS::EC2::VPCPeeringConnection",
+            "DependsOn": [
+                "rVPCDevelopment"
+            ],
+            "Properties": {
+                "VpcId": {
+                    "Ref": "rVPCManagement"
+                },
+                "PeerVpcId": {
+                    "Ref": "rVPCDevelopment"
+                }
+            }
+        }
+    },
+    "Outputs": {
+        "rVPCProduction": {
+            "Value": {
+                "Ref": "rVPCProduction"
+            }
+        },
+        "rVPCManagement": {
+            "Value": {
+                "Fn::If": [
+                    "cCreateVPCManagement",
+                    {
+                        "Ref": "rVPCManagement"
+                    },
+                    "N/A"
+                ]
+            }
+        },
+        "rManagementSubnetA": {
+            "Value": {
+                "Fn::If": [
+                    "cCreateVPCManagement",
+                    {
+                        "Ref": "rManagementSubnetA"
+                    },
+                    "N/A"
+                ]
+            }
+        },
+        "rManagementSubnetB": {
+            "Value": {
+                "Fn::If": [
+                    "cCreateVPCManagement",
+                    {
+                        "Ref": "rManagementSubnetB"
+                    },
+                    "N/A"
+                ]
+            }
+        },
+        "rDMZSubnetA": {
+            "Value": {
+                "Ref": "rDMZSubnetA"
+            }
+        },
+        "rDMZSubnetB": {
+            "Value": {
+                "Ref": "rDMZSubnetB"
+            }
+        },
+        "rAppPrivateSubnetA": {
+            "Value": {
+                "Ref": "rAppPrivateSubnetA"
+            }
+        },
+        "rAppPrivateSubnetB": {
+            "Value": {
+                "Ref": "rAppPrivateSubnetB"
+            }
+        },
+        "rDBPrivateSubnetA": {
+            "Value": {
+                "Ref": "rDBPrivateSubnetA"
+            }
+        },
+        "rSecurityGroupSSHFromProd": {
+            "Value": {
+                "Ref": "rSecurityGroupSSHFromProd"
+            }
+        },
+        "rDBPrivateSubnetB": {
+            "Value": {
+                "Ref": "rDBPrivateSubnetB"
+            }
+        }
+    }
+}

@@ -1,0 +1,382 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "Provides S3 buckets, S3 Policies, Security Groups, and related resources",
+    "Metadata": {
+        "Stack": {
+            "Value": "3"
+        },
+        "VersionDate": {
+            "Value": "09292015"
+        },
+        "Identifier": {
+            "Value": "stack3-resources-01"
+        },
+        "Input": {
+            "Description": "VPC, SubnetIDs, S3 bucket names, CIDR blocks"
+        },
+        "Output": {
+            "Description": "Outputs ID of all deployed resources"
+        }
+    },
+    "Parameters": {
+        "pProductionCIDR": {
+            "Description": "Production VPC CIDR",
+            "Type": "String"
+        },
+        "pProductionVPC": {
+            "Description": "Production VPC",
+            "Type": "String"
+        },
+        "pDMZSubnetA": {
+            "Description": "DMZ Subnet A",
+            "Type": "String"
+        },
+        "pDMZSubnetB": {
+            "Description": "DMZ Subnet B",
+            "Type": "String"
+        },
+        "pAppPrivateSubnetA": {
+            "Description": "Existing WebApp Private Subnet A",
+            "Type": "String"
+        },
+        "pAppPrivateSubnetB": {
+            "Description": "Existing WebApp Private Subnet A",
+            "Type": "String"
+        },
+        "pS3WebContentBucketName": {
+            "Description": "Name of S3 Bucket to use for web content (optional)",
+            "Type": "String"
+        },
+        "pS3AppLogsBucketName": {
+            "Description": "Name of S3 Bucket to use for application logs (optional)",
+            "Type": "String"
+        },
+        "pS3BackupBucketName": {
+            "Description": "Name of S3 Bucket to use for backup/DR data (optional)",
+            "Type": "String"
+        },
+        "pVPCManagement": {
+            "Description": "Management VPC",
+            "Type": "String",
+            "Default": "none"
+        }
+    },
+    "Conditions": {
+        "cCreateVPCManagement": {
+            "Fn::Not": [
+                {
+                    "Fn::Equals": [
+                        {
+                            "Ref": "pVPCManagement"
+                        },
+                        "false"
+                    ]
+                }
+            ]
+        },
+        "cCreateAppLogsBucket": {
+            "Fn::Not": [
+                {
+                    "Fn::Equals": [
+                        {
+                            "Ref": "pS3AppLogsBucketName"
+                        },
+                        "false"
+                    ]
+                }
+            ]
+        },
+        "cCreateWebContentBucket": {
+            "Fn::Not": [
+                {
+                    "Fn::Equals": [
+                        {
+                            "Ref": "pS3WebContentBucketName"
+                        },
+                        "false"
+                    ]
+                }
+            ]
+        },
+        "cCreateBackupBucket": {
+            "Fn::Not": [
+                {
+                    "Fn::Equals": [
+                        {
+                            "Ref": "pS3BackupBucketName"
+                        },
+                        "false"
+                    ]
+                }
+            ]
+        }
+    },
+    "Resources": {
+        "rSecurityGroupWeb": {
+            "Type": "AWS::EC2::SecurityGroup",
+            "Properties": {
+                "GroupDescription": "Security group for Reverse Proxy in DMZ",
+                "VpcId": {
+                    "Ref": "pProductionVPC"
+                },
+                "SecurityGroupIngress": [
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "443",
+                        "ToPort": "443",
+                        "CidrIp": "0.0.0.0/0"
+                    },
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "80",
+                        "ToPort": "80",
+                        "CidrIp": "0.0.0.0/0"
+                    }
+                ],
+                "SecurityGroupEgress": [
+                    {
+                        "IpProtocol": "-1",
+                        "CidrIp": "0.0.0.0/0"
+                    }
+                ]
+            }
+        },
+        "rSecurityGroupMgmtBastionHost": {
+            "Condition": "cCreateVPCManagement",
+            "Type": "AWS::EC2::SecurityGroup",
+            "Properties": {
+                "GroupDescription": "Security group for Bastion Host in DMZ",
+                "VpcId": {
+                    "Ref": "pVPCManagement"
+                },
+                "SecurityGroupIngress": [
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "22",
+                        "ToPort": "22",
+                        "CidrIp": "0.0.0.0/0"
+                    },
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "3389",
+                        "ToPort": "3389",
+                        "CidrIp": "0.0.0.0/0"
+                    }
+                ],
+                "SecurityGroupEgress": [
+                    {
+                        "IpProtocol": "-1",
+                        "CidrIp": "0.0.0.0/0"
+                    }
+                ]
+            }
+        },
+        "rSecurityGroupApp": {
+            "Type": "AWS::EC2::SecurityGroup",
+            "Properties": {
+                "GroupDescription": "Security group for Appservers",
+                "VpcId": {
+                    "Ref": "pProductionVPC"
+                },
+                "SecurityGroupIngress": [
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "443",
+                        "ToPort": "443",
+                        "CidrIp": {
+                            "Ref": "pProductionCIDR"
+                        }
+                    },
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "80",
+                        "ToPort": "80",
+                        "CidrIp": {
+                            "Ref": "pProductionCIDR"
+                        }
+                    }
+                ],
+                "SecurityGroupEgress": [
+                    {
+                        "IpProtocol": "-1",
+                        "CidrIp": "0.0.0.0/0"
+                    }
+                ]
+            }
+        },
+        "rSecurityGroupRDS": {
+            "Type": "AWS::EC2::SecurityGroup",
+            "Properties": {
+                "GroupDescription": "Port 3306 database for access",
+                "VpcId": {
+                    "Ref": "pProductionVPC"
+                },
+                "SecurityGroupIngress": [
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "3306",
+                        "ToPort": "3306",
+                        "SourceSecurityGroupId": {
+                            "Ref": "rSecurityGroupApp"
+                        }
+                    }
+                ]
+            }
+        },
+        "rWebContentBucket": {
+            "Type": "AWS::S3::Bucket",
+            "Condition": "cCreateWebContentBucket",
+            "Properties": {
+                "AccessControl": "Private",
+                "BucketName": {
+                    "Ref": "pS3WebContentBucketName"
+                }
+            },
+            "DeletionPolicy": "Retain"
+        },
+        "rWebContentS3Policy": {
+            "Type": "AWS::S3::BucketPolicy",
+            "Condition": "cCreateWebContentBucket",
+            "DependsOn": "rWebContentBucket",
+            "Properties": {
+                "Bucket": {
+                    "Ref": "rWebContentBucket"
+                },
+                "PolicyDocument": {
+                    "Statement": [
+                        {
+                            "Action": "s3:*",
+                            "Effect": "Deny",
+                            "Principal": "*",
+                            "Resource": {
+                                "Fn::Join": [
+                                    "",
+                                    [
+                                        "arn:aws:s3:::",
+                                        {
+                                            "Ref": "pS3WebContentBucketName"
+                                        },
+                                        "/*"
+                                    ]
+                                ]
+                            },
+                            "Condition": {
+                                "Bool": {
+                                    "aws:SecureTransport": false
+                                }
+                            }
+                        }
+                    ]
+                }
+            }
+        },
+        "rBackupBucket": {
+            "Type": "AWS::S3::Bucket",
+            "Condition": "cCreateBackupBucket",
+            "Properties": {
+                "AccessControl": "Private",
+                "BucketName": {
+                    "Fn::Join": [
+                        "",
+                        [
+                            {
+                                "Ref": "pS3BackupBucketName"
+                            },
+                            "-",
+                            {
+                                "Ref": "AWS::AccountId"
+                            }
+                        ]
+                    ]
+                }
+            },
+            "DeletionPolicy": "Delete"
+        },
+        "rAppLogsBucket": {
+            "Type": "AWS::S3::Bucket",
+            "Condition": "cCreateAppLogsBucket",
+            "Properties": {
+                "AccessControl": "Private",
+                "BucketName": {
+                    "Fn::Join": [
+                        "",
+                        [
+                            {
+                                "Ref": "pS3AppLogsBucketName"
+                            },
+                            "-",
+                            {
+                                "Ref": "AWS::AccountId"
+                            }
+                        ]
+                    ]
+                }
+            },
+            "DeletionPolicy": "Delete"
+        },
+        "rWebContentS3PolicySSE": {
+            "Type": "AWS::S3::BucketPolicy",
+            "Condition": "cCreateWebContentBucket",
+            "DependsOn": "rWebContentS3Policy",
+            "Properties": {
+                "Bucket": {
+                    "Ref": "rWebContentBucket"
+                },
+                "PolicyDocument": {
+                    "Statement": [
+                        {
+                            "Effect": "Deny",
+                            "Principal": "*",
+                            "Action": "s3:PutObject",
+                            "Resource": {
+                                "Fn::Join": [
+                                    "",
+                                    [
+                                        "arn:aws:s3:::",
+                                        {
+                                            "Ref": "pS3WebContentBucketName"
+                                        },
+                                        "/*"
+                                    ]
+                                ]
+                            },
+                            "Condition": {
+                                "StringNotEquals": {
+                                    "s3:x-amz-server-side-encryption": "AES256"
+                                }
+                            }
+                        }
+                    ]
+                }
+            }
+        }
+    },
+    "Outputs": {
+        "rSecurityGroupWeb": {
+            "Value": {
+                "Ref": "rSecurityGroupWeb"
+            }
+        },
+        "rSecurityGroupMgmtBastionHost": {
+            "Value": {
+                "Fn::If": [
+                    "cCreateVPCManagement",
+                    {
+                        "Ref": "rSecurityGroupMgmtBastionHost"
+                    },
+                    "N/A"
+                ]
+            }
+        },
+        "rSecurityGroupApp": {
+            "Value": {
+                "Ref": "rSecurityGroupApp"
+            }
+        },
+        "rSecurityGroupRDS": {
+            "Value": {
+                "Ref": "rSecurityGroupRDS"
+            }
+        }
+    }
+}

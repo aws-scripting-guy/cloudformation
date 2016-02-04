@@ -1,0 +1,1121 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "Provides resources directly required for the application, such as EC2 instances, autoscaling groups, and databases",
+    "Metadata": {
+        "Stack": {
+            "Value": "4"
+        },
+        "VersionDate": {
+            "Value": "09292015"
+        },
+        "Identifier": {
+            "Value": "stack4-application-01"
+        },
+        "Input": {
+            "Description": "VPC, SubnetIDs, S3 bucket names, CIDR blocks, KeyNames, AMIs, DB name and password"
+        },
+        "Output": {
+            "Description": "Outputs ID of all deployed resources"
+        }
+    },
+    "Parameters": {
+        "pKeyName": {
+            "Description": "Key Name for Instance",
+            "Type": "String",
+            "Default": ""
+        },
+        "pNatInstanceType": {
+            "Description": "Nat instance type",
+            "Type": "String"
+        },
+        "pProductionCIDR": {
+            "Description": "Production VPC CIDR",
+            "Type": "String"
+        },
+        "pProductionVPC": {
+            "Description": "Production VPC",
+            "Type": "String"
+        },
+        "pDMZSubnetA": {
+            "Description": "DMZ Subnet A",
+            "Type": "String"
+        },
+        "pDMZSubnetB": {
+            "Description": "DMZ Subnet B",
+            "Type": "String"
+        },
+        "pManagementSubnetA": {
+            "Description": "rManagementSubnetA",
+            "Type": "String"
+        },
+        "pAppPrivateSubnetA": {
+            "Description": "WebApp Subnet A",
+            "Type": "String"
+        },
+        "pAppPrivateSubnetB": {
+            "Description": "WebApp Subnet A",
+            "Type": "String"
+        },
+        "pWebInstanceType": {
+            "Description": "Instance type for the webservers",
+            "Type": "String"
+        },
+        "pAppInstanceType": {
+            "Description": "Instance type for the app webservers",
+            "Type": "String"
+        },
+        "pSecurityGroupWeb": {
+            "Description": "SG for Webserver",
+            "Type": "String"
+        },
+        "pSecurityGroupApp": {
+            "Description": "SG for Webapp",
+            "Type": "String"
+        },
+        "pSecurityGroupMgmtBastionHost": {
+            "Description": "SG for MGMT Bastion",
+            "Type": "String"
+        },
+        "pDBPrivateSubnetA": {
+            "Description": "rDBPrivateSubnetA",
+            "Type": "String"
+        },
+        "pDBPrivateSubnetB": {
+            "Description": "rDBPrivateSubnetB",
+            "Type": "String"
+        },
+        "pRegionAZ1Name": {
+            "Description": "rDBPrivateSubnetB",
+            "Type": "String"
+        },
+        "pRegionAZ2Name": {
+            "Description": "rDBPrivateSubnetB",
+            "Type": "String"
+        },
+        "pWebServerAMI": {
+            "Description": "Which webserver AMI do you want to use, default ",
+            "Type": "String",
+            "Default": "none"
+        },
+        "pAppAmi": {
+            "Description": "Which App AMI do you want to use?",
+            "Type": "String",
+            "Default": "none"
+        },
+        "pDBName": {
+            "Description": "Name of RDS Database",
+            "Type": "String"
+        },
+        "pDBUser": {
+            "Description": "Username of DB Instance",
+            "Type": "String"
+        },
+        "pDBPassword": {
+            "Description": "Password of DB Instance",
+            "Type": "String",
+            "NoEcho": "true"
+        },
+        "pDBClass": {
+            "Description": "Instance class of RDS instance",
+            "Type": "String"
+        },
+        "pDBAllocatedStorage": {
+            "Description": "Allocated Storage (in GB) for RDS instance",
+            "Type": "String"
+        },
+        "pSecurityGroupRDS": {
+            "Description": "Security group for MySQLRDS",
+            "Type": "String"
+        }
+    },
+    "Mappings": {
+        "AWSInstanceType2Arch": {
+            "t1.micro": {
+                "Arch": "PV64"
+            },
+            "t2.micro": {
+                "Arch": "HVM64"
+            },
+            "t2.small": {
+                "Arch": "HVM64"
+            },
+            "t2.medium": {
+                "Arch": "HVM64"
+            },
+            "m1.small": {
+                "Arch": "PV64"
+            },
+            "m1.medium": {
+                "Arch": "PV64"
+            },
+            "m1.large": {
+                "Arch": "PV64"
+            },
+            "m1.xlarge": {
+                "Arch": "PV64"
+            },
+            "m2.xlarge": {
+                "Arch": "PV64"
+            },
+            "m2.2xlarge": {
+                "Arch": "PV64"
+            },
+            "m2.4xlarge": {
+                "Arch": "PV64"
+            },
+            "m3.medium": {
+                "Arch": "HVM64"
+            },
+            "m3.large": {
+                "Arch": "HVM64"
+            },
+            "m3.xlarge": {
+                "Arch": "HVM64"
+            },
+            "m3.2xlarge": {
+                "Arch": "HVM64"
+            },
+            "c1.medium": {
+                "Arch": "PV64"
+            },
+            "c1.xlarge": {
+                "Arch": "PV64"
+            },
+            "c3.large": {
+                "Arch": "HVM64"
+            },
+            "c3.xlarge": {
+                "Arch": "HVM64"
+            },
+            "c3.2xlarge": {
+                "Arch": "HVM64"
+            },
+            "c3.4xlarge": {
+                "Arch": "HVM64"
+            },
+            "c3.8xlarge": {
+                "Arch": "HVM64"
+            },
+            "g2.2xlarge": {
+                "Arch": "HVMG2"
+            },
+            "r3.large": {
+                "Arch": "HVM64"
+            },
+            "r3.xlarge": {
+                "Arch": "HVM64"
+            },
+            "r3.2xlarge": {
+                "Arch": "HVM64"
+            },
+            "r3.4xlarge": {
+                "Arch": "HVM64"
+            },
+            "r3.8xlarge": {
+                "Arch": "HVM64"
+            },
+            "i2.xlarge": {
+                "Arch": "HVM64"
+            },
+            "i2.2xlarge": {
+                "Arch": "HVM64"
+            },
+            "i2.4xlarge": {
+                "Arch": "HVM64"
+            },
+            "i2.8xlarge": {
+                "Arch": "HVM64"
+            },
+            "hi1.4xlarge": {
+                "Arch": "HVM64"
+            },
+            "hs1.8xlarge": {
+                "Arch": "HVM64"
+            },
+            "cr1.8xlarge": {
+                "Arch": "HVM64"
+            },
+            "cc2.8xlarge": {
+                "Arch": "HVM64"
+            }
+        },
+        "AWSRegionArch2AMI": {
+            "us-east-1": {
+                "PV64": "ami-50842d38",
+                "HVM64": "ami-08842d60",
+                "HVMG2": "ami-3a329952"
+            },
+            "us-west-2": {
+                "PV64": "ami-af86c69f",
+                "HVM64": "ami-8786c6b7",
+                "HVMG2": "ami-47296a77"
+            },
+            "us-west-1": {
+                "PV64": "ami-c7a8a182",
+                "HVM64": "ami-cfa8a18a",
+                "HVMG2": "ami-331b1376"
+            },
+            "eu-west-1": {
+                "PV64": "ami-aa8f28dd",
+                "HVM64": "ami-748e2903",
+                "HVMG2": "ami-00913777"
+            },
+            "ap-southeast-1": {
+                "PV64": "ami-20e1c572",
+                "HVM64": "ami-d6e1c584",
+                "HVMG2": "ami-fabe9aa8"
+            },
+            "ap-northeast-1": {
+                "PV64": "ami-21072820",
+                "HVM64": "ami-35072834",
+                "HVMG2": "ami-5dd1ff5c"
+            },
+            "ap-southeast-2": {
+                "PV64": "ami-8b4724b1",
+                "HVM64": "ami-fd4724c7",
+                "HVMG2": "ami-e98ae9d3"
+            },
+            "sa-east-1": {
+                "PV64": "ami-9d6cc680",
+                "HVM64": "ami-956cc688",
+                "HVMG2": "NOT_SUPPORTED"
+            },
+            "cn-north-1": {
+                "PV64": "ami-a857c591",
+                "HVM64": "ami-ac57c595",
+                "HVMG2": "NOT_SUPPORTED"
+            },
+            "eu-central-1": {
+                "PV64": "ami-a03503bd",
+                "HVM64": "ami-b43503a9",
+                "HVMG2": "ami-b03503ad"
+            }
+        }
+    },
+    "Conditions": {
+        "cCreateVPCManagement": {
+            "Fn::Not": [
+                {
+                    "Fn::Equals": [
+                        {
+                            "Ref": "pManagementSubnetA"
+                        },
+                        "false"
+                    ]
+                }
+            ]
+        },
+        "cCreaterRDSInstanceMySQL": {
+            "Fn::Not": [
+                {
+                    "Fn::Equals": [
+                        {
+                            "Ref": "pDBName"
+                        },
+                        "none"
+                    ]
+                }
+            ]
+        },
+        "cCreateAppInstance": {
+            "Fn::Not": [
+                {
+                    "Fn::Equals": [
+                        {
+                            "Ref": "pAppAmi"
+                        },
+                        "none"
+                    ]
+                }
+            ]
+        },
+        "cCreateWebInstance": {
+            "Fn::Not": [
+                {
+                    "Fn::Equals": [
+                        {
+                            "Ref": "pWebServerAMI"
+                        },
+                        "none"
+                    ]
+                }
+            ]
+        }
+    },
+    "Resources": {
+        "rEIPrBastionHostInstance": {
+            "Type": "AWS::EC2::EIP",
+            "Properties": {
+                "Domain": "vpc"
+            }
+        },
+        "rEIPAssociationBastion": {
+            "Condition": "cCreateVPCManagement",
+            "Type": "AWS::EC2::EIPAssociation",
+            "Properties": {
+                "AllocationId": {
+                    "Fn::GetAtt": [
+                        "rEIPrBastionHostInstance",
+                        "AllocationId"
+                    ]
+                },
+                "NetworkInterfaceId": {
+                    "Ref": "rENIBastionHost"
+                }
+            }
+        },
+        "rENIBastionHost": {
+            "Condition": "cCreateVPCManagement",
+            "Type": "AWS::EC2::NetworkInterface",
+            "Properties": {
+                "SubnetId": {
+                    "Ref": "pManagementSubnetA"
+                },
+                "Description": "Interface for control traffic such as SSH",
+                "GroupSet": [
+                    {
+                        "Ref": "pSecurityGroupMgmtBastionHost"
+                    }
+                ],
+                "SourceDestCheck": "true",
+                "Tags": [
+                    {
+                        "Key": "Network",
+                        "Value": "BastionControl"
+                    }
+                ]
+            }
+        },
+        "rBastionHostInstance": {
+            "Condition": "cCreateVPCManagement",
+            "Type": "AWS::EC2::Instance",
+            "Properties": {
+                "InstanceType": {
+                    "Ref": "pNatInstanceType"
+                },
+                "KeyName": {
+                    "Ref": "pKeyName"
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "Management Jump Server"
+                    }
+                ],
+                "ImageId": {
+                    "Fn::FindInMap": [
+                        "AWSRegionArch2AMI",
+                        {
+                            "Ref": "AWS::Region"
+                        },
+                        {
+                            "Fn::FindInMap": [
+                                "AWSInstanceType2Arch",
+                                {
+                                    "Ref": "pNatInstanceType"
+                                },
+                                "Arch"
+                            ]
+                        }
+                    ]
+                },
+                "NetworkInterfaces": [
+                    {
+                        "NetworkInterfaceId": {
+                            "Ref": "rENIBastionHost"
+                        },
+                        "DeviceIndex": "0"
+                    }
+                ]
+            }
+        },
+        "rDBSubnetGroup": {
+            "Type": "AWS::RDS::DBSubnetGroup",
+            "Properties": {
+                "DBSubnetGroupDescription": "MySQL RDS Subnet Group",
+                "SubnetIds": [
+                    {
+                        "Ref": "pDBPrivateSubnetA"
+                    },
+                    {
+                        "Ref": "pDBPrivateSubnetB"
+                    }
+                ]
+            }
+        },
+        "rRDSInstanceMySQL": {
+            "Type": "AWS::RDS::DBInstance",
+            "DependsOn": "rDBSubnetGroup",
+            "Condition": "cCreaterRDSInstanceMySQL",
+            "Properties": {
+                "DBName": {
+                    "Ref": "pDBName"
+                },
+                "Engine": "MySQL",
+                "MultiAZ": "true",
+                "StorageEncrypted": "true",
+                "MasterUsername": {
+                    "Ref": "pDBUser"
+                },
+                "MasterUserPassword": {
+                    "Ref": "pDBPassword"
+                },
+                "DBInstanceClass": {
+                    "Ref": "pDBClass"
+                },
+                "AllocatedStorage": {
+                    "Ref": "pDBAllocatedStorage"
+                },
+                "VPCSecurityGroups": [
+                    {
+                        "Ref": "pSecurityGroupRDS"
+                    }
+                ],
+                "DBSubnetGroupName": {
+                    "Ref": "rDBSubnetGroup"
+                }
+            }
+        },
+        "rELBApp": {
+            "Type": "AWS::ElasticLoadBalancing::LoadBalancer",
+            "Properties": {
+                "Subnets": [
+                    {
+                        "Ref": "pAppPrivateSubnetA"
+                    },
+                    {
+                        "Ref": "pAppPrivateSubnetB"
+                    }
+                ],
+                "HealthCheck": {
+                    "HealthyThreshold": "2",
+                    "Interval": "15",
+                    "Target": "TCP:80",
+                    "Timeout": "5",
+                    "UnhealthyThreshold": "3"
+                },
+                "SecurityGroups": [
+                    {
+                        "Ref": "pSecurityGroupApp"
+                    }
+                ],
+                "Listeners": [
+                    {
+                        "InstancePort": "80",
+                        "LoadBalancerPort": "80",
+                        "Protocol": "HTTP",
+                        "InstanceProtocol": "HTTP"
+                    }
+                ],
+                "Scheme": "internal",
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "ProxyELB"
+                    }
+                ]
+            }
+        },
+        "rELBWeb": {
+            "Type": "AWS::ElasticLoadBalancing::LoadBalancer",
+            "Properties": {
+                "Subnets": [
+                    {
+                        "Ref": "pDMZSubnetA"
+                    },
+                    {
+                        "Ref": "pDMZSubnetB"
+                    }
+                ],
+                "HealthCheck": {
+                    "HealthyThreshold": "2",
+                    "Interval": "30",
+                    "Target": "TCP:80",
+                    "Timeout": "5",
+                    "UnhealthyThreshold": "5"
+                },
+                "SecurityGroups": [
+                    {
+                        "Ref": "pSecurityGroupWeb"
+                    }
+                ],
+                "Listeners": [
+                    {
+                        "InstancePort": "80",
+                        "LoadBalancerPort": "80",
+                        "Protocol": "HTTP",
+                        "InstanceProtocol": "HTTP"
+                    }
+                ],
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "ProxyELB"
+                    }
+                ]
+            }
+        },
+        "rAutoScalingConfigWeb": {
+            "Type": "AWS::AutoScaling::LaunchConfiguration",
+            "Condition": "cCreateWebInstance",
+            "Metadata": {
+                "AWS::CloudFormation::Init": {
+                    "config": {
+                        "packages": {
+                            "yum": {
+                                "nginx": [],
+                                "java-1.6.0-openjdk-devel": [],
+                                "git": []
+                            }
+                        },
+                        "files": {
+                            "/tmp/nginx/default.conf": {
+                                "content": {
+                                    "Fn::Join": [
+                                        "",
+                                        [
+                                            "server {\n",
+                                            "listen 80;\n",
+                                            "listen [::]:80 default ipv6only=on;\n",
+                                            "charset utf-8;\n",
+                                            "location / {\n",
+                                            "proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n",
+                                            "proxy_set_header Host $http_host;\n",
+                                            "proxy_redirect off;\n\n",
+                                            "proxy_pass http://",
+                                            {
+                                                "Fn::GetAtt": [
+                                                    "rELBApp",
+                                                    "DNSName"
+                                                ]
+                                            },
+                                            "/;\n",
+                                            "\n",
+                                            "}\n",
+                                            "}\n"
+                                        ]
+                                    ]
+                                },
+                                "mode": "000755",
+                                "owner": "root",
+                                "group": "root"
+                            }
+                        },
+                        "services": {
+                            "sysvinit": {
+                                "nginx": {
+                                    "enabled": "true",
+                                    "ensureRunning": "true",
+                                    "files": [
+                                        "/etc/nginx/conf.d/default.conf"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "Properties": {
+                "AssociatePublicIpAddress": "True",
+                "ImageId": {
+                    "Ref": "pWebServerAMI"
+                },
+                "InstanceType": {
+                    "Ref": "pWebInstanceType"
+                },
+                "KeyName": {
+                    "Ref": "pKeyName"
+                },
+                "SecurityGroups": [
+                    {
+                        "Ref": "pSecurityGroupWeb"
+                    }
+                ],
+                "UserData": {
+                    "Fn::Base64": {
+                        "Fn::Join": [
+                            "",
+                            [
+                                "#!/bin/bash\n",
+                                "yum update -y aws-cfn-bootstrap\n",
+                                "/opt/aws/bin/cfn-init -v ",
+                                "         --stack ",
+                                {
+                                    "Ref": "AWS::StackName"
+                                },
+                                "         --resource rAutoScalingConfigWeb ",
+                                "         --region ",
+                                {
+                                    "Ref": "AWS::Region"
+                                },
+                                "\n",
+                                "## Nginx setup\n",
+                                "sleep 5\n",
+                                "cp /tmp/nginx/default.conf /etc/nginx/conf.d/default.conf\n",
+                                "sleep 5\n",
+                                "service nginx stop\n",
+                                "service nginx start\n"
+                            ]
+                        ]
+                    }
+                }
+            }
+        },
+        "rAutoScalingGroupWeb": {
+            "Type": "AWS::AutoScaling::AutoScalingGroup",
+            "Condition": "cCreateWebInstance",
+            "DependsOn": [
+                "rAutoScalingConfigWeb",
+                "rAutoScalingGroupApp"
+            ],
+            "Properties": {
+                "AvailabilityZones": [
+                    {
+                        "Ref": "pRegionAZ1Name"
+                    },
+                    {
+                        "Ref": "pRegionAZ2Name"
+                    }
+                ],
+                "VPCZoneIdentifier": [
+                    {
+                        "Ref": "pDMZSubnetA"
+                    },
+                    {
+                        "Ref": "pDMZSubnetB"
+                    }
+                ],
+                "LaunchConfigurationName": {
+                    "Ref": "rAutoScalingConfigWeb"
+                },
+                "MinSize": "2",
+                "MaxSize": "4",
+                "LoadBalancerNames": [
+                    {
+                        "Ref": "rELBWeb"
+                    }
+                ],
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "Proxy Server",
+                        "PropagateAtLaunch": "true"
+                    }
+                ]
+            }
+        },
+        "rAutoScalingUpWeb": {
+            "Type": "AWS::AutoScaling::ScalingPolicy",
+            "Condition": "cCreateWebInstance",
+            "Properties": {
+                "AdjustmentType": "ChangeInCapacity",
+                "AutoScalingGroupName": {
+                    "Ref": "rAutoScalingGroupWeb"
+                },
+                "Cooldown": "500",
+                "ScalingAdjustment": "1"
+            }
+        },
+        "rAutoScalingDownWeb": {
+            "Type": "AWS::AutoScaling::ScalingPolicy",
+            "Condition": "cCreateWebInstance",
+            "Properties": {
+                "AdjustmentType": "ChangeInCapacity",
+                "AutoScalingGroupName": {
+                    "Ref": "rAutoScalingGroupWeb"
+                },
+                "Cooldown": "500",
+                "ScalingAdjustment": "-1"
+            }
+        },
+        "rCWAlarmHighCPUWeb": {
+            "Type": "AWS::CloudWatch::Alarm",
+            "Condition": "cCreateWebInstance",
+            "Properties": {
+                "EvaluationPeriods": "1",
+                "Statistic": "Average",
+                "Threshold": "50",
+                "AlarmDescription": "Alarm if CPU too high or metric disappears indicating instance is down",
+                "Period": "60",
+                "AlarmActions": [
+                    {
+                        "Ref": "rAutoScalingUpWeb"
+                    }
+                ],
+                "Namespace": "AWS/EC2",
+                "Dimensions": [
+                    {
+                        "Name": "AutoScalingGroupName",
+                        "Value": {
+                            "Ref": "rAutoScalingGroupWeb"
+                        }
+                    }
+                ],
+                "ComparisonOperator": "GreaterThanThreshold",
+                "MetricName": "CPUUtilization"
+            }
+        },
+        "rCWAlarmLowCPUWeb": {
+            "Type": "AWS::CloudWatch::Alarm",
+            "Condition": "cCreateWebInstance",
+            "Properties": {
+                "EvaluationPeriods": "1",
+                "Statistic": "Average",
+                "Threshold": "10",
+                "AlarmDescription": "Alarm if CPU too too, remove a webserver",
+                "Period": "60",
+                "AlarmActions": [
+                    {
+                        "Ref": "rAutoScalingDownWeb"
+                    }
+                ],
+                "Namespace": "AWS/EC2",
+                "Dimensions": [
+                    {
+                        "Name": "AutoScalingGroupName",
+                        "Value": {
+                            "Ref": "rAutoScalingGroupWeb"
+                        }
+                    }
+                ],
+                "ComparisonOperator": "LessThanThreshold",
+                "MetricName": "CPUUtilization"
+            }
+        },
+        "rAutoScalingConfigApp": {
+            "Type": "AWS::AutoScaling::LaunchConfiguration",
+            "DependsOn": "rRDSInstanceMySQL",
+            "Condition": "cCreateAppInstance",
+            "Metadata": {
+                "AWS::CloudFormation::Init": {
+                    "configSets": {
+                        "wordpress_install": [
+                            "install_cfn",
+                            "install_wordpress"
+                        ]
+                    },
+                    "install_cfn": {
+                        "files": {
+                            "/etc/cfn/cfn-hup.conf": {
+                                "content": {
+                                    "Fn::Join": [
+                                        "",
+                                        [
+                                            "[main]\n",
+                                            "stack=",
+                                            {
+                                                "Ref": "AWS::StackId"
+                                            },
+                                            "\n",
+                                            "region=",
+                                            {
+                                                "Ref": "AWS::Region"
+                                            },
+                                            "\n"
+                                        ]
+                                    ]
+                                },
+                                "mode": "000400",
+                                "owner": "root",
+                                "group": "root"
+                            },
+                            "/etc/cfn/hooks.d/cfn-auto-reloader.conf": {
+                                "content": {
+                                    "Fn::Join": [
+                                        "",
+                                        [
+                                            "[cfn-auto-reloader-hook]\n",
+                                            "triggers=post.update\n",
+                                            "path=Resources.rAutoScalingConfigApp.Metadata.AWS::CloudFormation::Init\n",
+                                            "action=/opt/aws/bin/cfn-init -v ",
+                                            "         --stack ",
+                                            {
+                                                "Ref": "AWS::StackName"
+                                            },
+                                            "         --resource rAutoScalingConfigApp ",
+                                            "         --configsets wordpress_install ",
+                                            "         --region ",
+                                            {
+                                                "Ref": "AWS::Region"
+                                            },
+                                            "\n"
+                                        ]
+                                    ]
+                                },
+                                "mode": "000400",
+                                "owner": "root",
+                                "group": "root"
+                            }
+                        },
+                        "services": {
+                            "sysvinit": {
+                                "cfn-hup": {
+                                    "enabled": "true",
+                                    "ensureRunning": "true",
+                                    "files": [
+                                        "/etc/cfn/cfn-hup.conf",
+                                        "/etc/cfn/hooks.d/cfn-auto-reloader.conf"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "install_wordpress": {
+                        "packages": {
+                            "yum": {
+                                "php": [],
+                                "php-mysql": [],
+                                "mysql": [],
+                                "httpd": []
+                            }
+                        },
+                        "sources": {
+                            "/var/www/html": "http://wordpress.org/latest.tar.gz"
+                        },
+                        "files": {
+                            "/tmp/create-wp-config": {
+                                "content": {
+                                    "Fn::Join": [
+                                        "",
+                                        [
+                                            "#!/bin/bash\n",
+                                            "cp /var/www/html/wordpress/wp-config-sample.php /var/www/html/wordpress/wp-config.php\n",
+                                            "sed -i \"s/'database_name_here'/'",
+                                            {
+                                                "Ref": "pDBName"
+                                            },
+                                            "'/g\" wp-config.php\n",
+                                            "sed -i \"s/'username_here'/'",
+                                            {
+                                                "Ref": "pDBUser"
+                                            },
+                                            "'/g\" wp-config.php\n",
+                                            "sed -i \"s/'password_here'/'",
+                                            {
+                                                "Ref": "pDBPassword"
+                                            },
+                                            "'/g\" wp-config.php\n",
+                                            "sed -i \"s/'localhost'/'",
+                                            {
+                                                "Fn::GetAtt": [
+                                                    "rRDSInstanceMySQL",
+                                                    "Endpoint.Address"
+                                                ]
+                                            },
+                                            "'/g\" wp-config.php\n"
+                                        ]
+                                    ]
+                                },
+                                "mode": "000500",
+                                "owner": "root",
+                                "group": "root"
+                            }
+                        },
+                        "commands": {
+                            "01_configure_wordpress": {
+                                "command": "/tmp/create-wp-config",
+                                "cwd": "/var/www/html/wordpress"
+                            }
+                        },
+                        "services": {
+                            "sysvinit": {
+                                "httpd": {
+                                    "enabled": "true",
+                                    "ensureRunning": "true"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "Properties": {
+                "ImageId": {
+                    "Ref": "pAppAmi"
+                },
+                "InstanceType": {
+                    "Ref": "pAppInstanceType"
+                },
+                "KeyName": {
+                    "Ref": "pKeyName"
+                },
+                "SecurityGroups": [
+                    {
+                        "Ref": "pSecurityGroupApp"
+                    }
+                ],
+                "UserData": {
+                    "Fn::Base64": {
+                        "Fn::Join": [
+                            "",
+                            [
+                                "#!/bin/bash -xe\n",
+                                "yum update -y aws-cfn-bootstrap\n",
+                                "/opt/aws/bin/cfn-init -v ",
+                                "         --stack ",
+                                {
+                                    "Ref": "AWS::StackName"
+                                },
+                                "         --resource rAutoScalingConfigApp ",
+                                "         --configsets wordpress_install ",
+                                "         --region ",
+                                {
+                                    "Ref": "AWS::Region"
+                                },
+                                "\n",
+                                "/opt/aws/bin/cfn-signal -e $? ",
+                                "         --stack ",
+                                {
+                                    "Ref": "AWS::StackName"
+                                },
+                                "         --resource WebServerGroup ",
+                                "         --region ",
+                                {
+                                    "Ref": "AWS::Region"
+                                },
+                                "\n"
+                            ]
+                        ]
+                    }
+                }
+            }
+        },
+        "rAutoScalingGroupApp": {
+            "Type": "AWS::AutoScaling::AutoScalingGroup",
+            "DependsOn": "rAutoScalingConfigApp",
+            "Condition": "cCreateAppInstance",
+            "Properties": {
+                "AvailabilityZones": [
+                    {
+                        "Ref": "pRegionAZ1Name"
+                    },
+                    {
+                        "Ref": "pRegionAZ2Name"
+                    }
+                ],
+                "VPCZoneIdentifier": [
+                    {
+                        "Ref": "pAppPrivateSubnetA"
+                    },
+                    {
+                        "Ref": "pAppPrivateSubnetB"
+                    }
+                ],
+                "LaunchConfigurationName": {
+                    "Ref": "rAutoScalingConfigApp"
+                },
+                "MinSize": "2",
+                "MaxSize": "4",
+                "LoadBalancerNames": [
+                    {
+                        "Ref": "rELBApp"
+                    }
+                ],
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "AppServer",
+                        "PropagateAtLaunch": "true"
+                    }
+                ]
+            }
+        },
+        "rAutoScalingDownApp": {
+            "Type": "AWS::AutoScaling::ScalingPolicy",
+            "Condition": "cCreateAppInstance",
+            "Properties": {
+                "AdjustmentType": "ChangeInCapacity",
+                "AutoScalingGroupName": {
+                    "Ref": "rAutoScalingGroupApp"
+                },
+                "Cooldown": "1",
+                "ScalingAdjustment": "1"
+            }
+        },
+        "rAutoScalingUpApp": {
+            "Type": "AWS::AutoScaling::ScalingPolicy",
+            "Condition": "cCreateAppInstance",
+            "Properties": {
+                "AdjustmentType": "ChangeInCapacity",
+                "AutoScalingGroupName": {
+                    "Ref": "rAutoScalingGroupApp"
+                },
+                "Cooldown": "1",
+                "ScalingAdjustment": "-1"
+            }
+        },
+        "rCWAlarmHighCPUApp": {
+            "Type": "AWS::CloudWatch::Alarm",
+            "Condition": "cCreateAppInstance",
+            "Properties": {
+                "EvaluationPeriods": "1",
+                "Statistic": "Average",
+                "Threshold": "50",
+                "AlarmDescription": "Alarm if CPU too high or metric disappears indicating instance is down",
+                "Period": "60",
+                "AlarmActions": [
+                    {
+                        "Ref": "rAutoScalingDownApp"
+                    }
+                ],
+                "Namespace": "AWS/EC2",
+                "Dimensions": [
+                    {
+                        "Name": "AutoScalingGroupName",
+                        "Value": {
+                            "Ref": "rAutoScalingGroupApp"
+                        }
+                    }
+                ],
+                "ComparisonOperator": "GreaterThanThreshold",
+                "MetricName": "CPUUtilization"
+            }
+        },
+        "rCWAlarmLowCPUApp": {
+            "Type": "AWS::CloudWatch::Alarm",
+            "Condition": "cCreateAppInstance",
+            "Properties": {
+                "EvaluationPeriods": "1",
+                "Statistic": "Average",
+                "Threshold": "10",
+                "AlarmDescription": "Alarm if CPU too too, remove a webseerver",
+                "Period": "60",
+                "AlarmActions": [
+                    {
+                        "Ref": "rAutoScalingUpApp"
+                    }
+                ],
+                "Namespace": "AWS/EC2",
+                "Dimensions": [
+                    {
+                        "Name": "AutoScalingGroupName",
+                        "Value": {
+                            "Ref": "rAutoScalingGroupApp"
+                        }
+                    }
+                ],
+                "ComparisonOperator": "LessThanThreshold",
+                "MetricName": "CPUUtilization"
+            }
+        }
+    },
+    "Outputs": {
+        "WebsiteURL": {
+            "Value": {
+                "Fn::Join": [
+                    "",
+                    [
+                        "http://",
+                        {
+                            "Fn::GetAtt": [
+                                "rELBWeb",
+                                "DNSName"
+                            ]
+                        },
+                        "/wordpress"
+                    ]
+                ]
+            },
+            "Description": "WordPress Website"
+        }
+    }
+}
